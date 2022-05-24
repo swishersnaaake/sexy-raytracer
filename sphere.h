@@ -67,6 +67,7 @@ bool sphere::hit(const ray &ray, float tMin, float tMax, hitRecord &record) cons
   record.setFaceNormal(ray, outwardNormal);
   getSphereUV(outwardNormal, record.uv);
   record.matPtr = matPtr;
+  record.blah = false;
 
   return true;
 }

@@ -104,4 +104,51 @@ class image3bpp : public texture {
     int             bytesPerScanline;
 };
 
+class imagePNG : public texture {
+  public:
+    imagePNG(int bytesPP) : data(nullptr), width(0), height(0), bpp(bytesPP), bytesPerScanline(0) {}
+    imagePNG(const char* filename, int bytesPP) : bpp(bytesPP) {
+      auto  componentsPP = bpp;
+      
+      data = stbi_load(filename, &width, &height, &componentsPP, componentsPP);
+
+      if (!data) {
+        std::cerr << "ERROR: Could not load image file '" << filename << "'\n";
+        width = height = 0;
+      }
+
+      bytesPerScanline = bpp * width;
+    }
+
+    ~imagePNG() {
+      delete data;
+    }
+
+    virtual color3f value(float u, float v, const vec3f& p) const override {
+      if (data == nullptr)
+        return color3f(1.0f, 0, 1.0f);
+      
+      u = clamp(u, 0, 1.0f);
+      v = 1.0f - clamp(v, 0, 1.0f);
+
+      auto  i = static_cast<int>(u * width);
+      auto  j = static_cast<int>(v * height);
+
+      if (i >= width)
+        i = width - 1;
+      
+      if (j >= height)
+        j = height - 1;
+      
+      auto  pixel = data + j * bytesPerScanline + i * bpp;
+
+      return color3f(pixel[0], pixel[1], pixel[2]);
+    }
+  
+  protected:
+    uint8_t*        data;
+    int             width, height, bpp;
+    int             bytesPerScanline;
+};
+
 #endif

@@ -14,14 +14,12 @@ using std::uint32_t;
 
 bool gltfLoad(std::string filename, shared_ptr<class model> model);
 
-class triangle : public hittable {
+class triangle : public hittable, public std::enable_shared_from_this<triangle> {
   public:
-    triangle() {}
-    triangle(uint16_t index0, uint16_t index1, uint16_t index2,
-            shared_ptr<class mesh> srcMesh) : parentMesh(srcMesh) {
-      vertices[0] = index0;
-      vertices[1] = index1;
-      vertices[2] = index2;
+    shared_ptr<triangle> getPtr() { return shared_from_this(); }
+    [[nodiscard]] static shared_ptr<triangle> create(uint16_t index0, uint16_t index1,
+                                                      uint16_t index2, shared_ptr<class mesh> srcMesh) {
+      return shared_ptr<triangle>(new triangle(index0, index1, index2, srcMesh));
     }
 
     virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
@@ -29,6 +27,15 @@ class triangle : public hittable {
     virtual int   selectBvhAxis() const override;
 
     inline vec3f getNormal() const;
+
+  private:
+    triangle() {}
+    triangle(uint16_t index0, uint16_t index1, uint16_t index2,
+            shared_ptr<class mesh> srcMesh) : parentMesh(srcMesh) {
+      vertices[0] = index0;
+      vertices[1] = index1;
+      vertices[2] = index2;
+    }
 
   private:
     uint16_t                vertices[3];
@@ -39,15 +46,15 @@ class triangle : public hittable {
 class mesh : public hittable, public std::enable_shared_from_this<mesh> {
   public:
     shared_ptr<mesh> getPtr() { return shared_from_this(); }
-    [[nodiscard]] static shared_ptr<mesh> create(shared_ptr<material> mat) {
-      return shared_ptr<mesh>(new mesh(mat));
+    [[nodiscard]] static shared_ptr<mesh> create() {
+      return shared_ptr<mesh>(new mesh());
     }
     
     virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
     
   private:
-    mesh(shared_ptr<material> mat) : matPtr(mat) {}
+    mesh() {}
 
   public:
     std::vector<shared_ptr<triangle>>   triangles;
@@ -80,12 +87,13 @@ class model : public hittable, public std::enable_shared_from_this<model> {
 };
 
 bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) const {
-  vec3f v0 = parentMesh->positions[vertices[0]];
-  vec3f v1 = parentMesh->positions[vertices[1]];
-  vec3f v2 = parentMesh->positions[vertices[2]];
-  vec2f uv0 = parentMesh->texcoords[vertices[0]];
-  vec2f uv1 = parentMesh->texcoords[vertices[1]];
-  vec2f uv2 = parentMesh->texcoords[vertices[2]];
+  vec3f  sourceV[3];
+  vec2f  sourceUV[3];
+  
+  for (int i = 0; i < 3; i++) {
+    sourceV[i] = parentMesh->positions[vertices[i]];
+    sourceUV[i] = parentMesh->texcoords[vertices[i]];
+  }
 
   vec3f normal = getNormal();
   float area = length(normal);
@@ -99,7 +107,7 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
   if (ray.dir.dot(normal) > 0)
     return false;
   
-  float d = -normal.dot(v0);
+  float d = -normal.dot(sourceV[0]);
   float t = -(normal.dot(ray.o) + d) / NdotDir;
 
   if (t < tMin)
@@ -110,38 +118,41 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
   float u, v;
 
   // edge 0
-  vec3f edge0 = v1 - v0;
-  vec3f vp0 = p - v0;
+  vec3f edge0 = sourceV[1] - sourceV[0];
+  vec3f vp0 = p - sourceV[0];
   cross = edge0.cross(vp0);
   if (normal.dot(cross) < 0)
     return false;
   
   // edge 1
-  vec3f edge1 = v2 - v1;
-  vec3f vp1 = p - v1;
+  vec3f edge1 = sourceV[2] - sourceV[1];
+  vec3f vp1 = p - sourceV[1];
   cross = edge1.cross(vp1);
   if (normal.dot(cross) < 0)
     return false;
   
   // edge 2
-  vec3f edge2 = v0 - v2;
-  vec3f vp2 = p - v2;
+  vec3f edge2 = sourceV[0] - sourceV[2];
+  vec3f vp2 = p - sourceV[2];
   cross = edge2.cross(vp2);
   if (normal.dot(cross) < 0)
     return false;
 
   float d0, d1, d2, r0, r1, r2;
-  d0 = distance(p, v0);
-  d1 = distance(p, v1);
-  d2 = distance(p, v2);
+  d0 = distance(p, sourceV[0]);
+  d1 = distance(p, sourceV[1]);
+  d2 = distance(p, sourceV[2]);
 
   float denom = (1.0f / d0) + (1.0f / d1) + (1.0f / d2);
   r0 = (1.0f / d0) / denom;
   r1 = (1.0f / d1) / denom;
   r2 = (1.0f / d2) / denom;
 
-  u = r0 * uv0(0) + r1 * uv1(0) + r2 * uv2(0);
-  v = 1.0f - (r0 * uv0(1) + r1 * uv1(1) + r2 * uv2(1));
+  u = r0 * sourceUV[0](0) + r1 * sourceUV[1](0) + r2 * sourceUV[2](0);
+  v = 1.0f - (r0 * sourceUV[0](1) + r1 * sourceUV[1](1) + r2 * sourceUV[2](1));
+
+  if (isNan(vec2f(u, v)))
+    int blah = 0;
 
   vec3f outwardNormal = unitVector(normal);
   record.t = t;
@@ -149,6 +160,12 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
   record.setFaceNormal(ray, outwardNormal);
   record.uv = vec2f(u, v);
   record.matPtr = parentMesh->matPtr;
+  record.blah = true;
+
+  for (int i = 0; i < 3; i++) {
+    record.sourceV[i] = sourceV[i];
+    record.sourceUV[i] = sourceUV[i];
+  }
 
   return true;
 }
@@ -241,21 +258,19 @@ bool gltfLoad(std::string filename, shared_ptr<model> model) {
   // for each node
   // for each mesh
   for (int meshIndex = 0; meshIndex < data->meshes_count; meshIndex++) {
-    cgltf_mesh*   cmesh = &(data->meshes[meshIndex]);
-
-    auto  meshTex = make_shared<lambertian>(color3f(1.0f, 0, 0));
+    cgltf_mesh*   gltfMesh = &(data->meshes[meshIndex]);
 
     // for each primitive->accessor->buffer view->buffer
-    for (int primIndex = 0; primIndex < cmesh->primitives_count; primIndex++) {
-      cgltf_primitive*  prim = &(cmesh->primitives[primIndex]);
-      int               numAttributes = prim->attributes_count;
+    for (int primIndex = 0; primIndex < gltfMesh->primitives_count; primIndex++) {
+      cgltf_primitive*  gltfPrim = &(gltfMesh->primitives[primIndex]);
+      int               numAttributes = gltfPrim->attributes_count;
 
-      shared_ptr<mesh>  newMesh = mesh::create(meshTex);
+      shared_ptr<mesh>  newMesh = mesh::create();
       model->meshes.push_back(newMesh);
 
       // read in raw attribute data
-      for (int attrIndex = 0; attrIndex < prim->attributes_count; attrIndex++) {
-        cgltf_attribute*  attribute = &(prim->attributes[attrIndex]);
+      for (int attrIndex = 0; attrIndex < gltfPrim->attributes_count; attrIndex++) {
+        cgltf_attribute*  attribute = &(gltfPrim->attributes[attrIndex]);
         
         if (attribute->type == cgltf_attribute_type_position) {
           cgltf_accessor*     a = attribute->data;
@@ -291,35 +306,84 @@ bool gltfLoad(std::string filename, shared_ptr<model> model) {
       }
 
       // read in material
-      cgltf_material* mat = prim->material;
-      if (mat) {
-        if (mat->has_pbr_metallic_roughness) {
-          cgltf_pbr_metallic_roughness* pbrMat = &mat->pbr_metallic_roughness;
-          cgltf_texture_view*           pbrTexView = &pbrMat->base_color_texture;
-          cgltf_texture_view*           normalMapView = &mat->normal_texture;
+      cgltf_material* gltfMat = gltfPrim->material;
+      if (gltfMat) {
+        if (gltfMat->has_pbr_metallic_roughness) {
+          cgltf_texture*      albedoMap = nullptr;
+          cgltf_texture*      normalMap = nullptr;
+          cgltf_texture*      metallicRoughnessMap = nullptr;
+          cgltf_image*        albedoImage = nullptr;
+          cgltf_image*        normalImage = nullptr;
+          cgltf_image*        metallicRoughnessImage = nullptr;
 
-          if (pbrTexView->texture) {
-            cgltf_texture*      pbrTex = pbrTexView->texture;
-            cgltf_image*        texImage = pbrTex->image;
-            cgltf_texture*      normalMap = normalMapView->texture;
-            cgltf_image*        normalMapImage = normalMap->image;
+          std::string textureFile;
+          std::string normalMapFile;
+          std::string metallicRoughnessMapFile;
 
-            std::string textureFile = "../data/";
-            std::string normalMapFile = "../data/";
-            textureFile.append(texImage->uri);
-            normalMapFile.append(normalMapImage->uri);
+          vec4f baseColor;
+          float metallicness, roughness;
 
-            newMesh->matPtr = make_shared<lambertian>(make_shared<image3bpp>(textureFile.c_str()),
-                                                      make_shared<image3bpp>(normalMapFile.c_str()),
-                                                      color4f(0.84f, 0.26f, 0.36f, 1.0f));
-            int blah = 0;
+          cgltf_pbr_metallic_roughness* pbrMat = &gltfMat->pbr_metallic_roughness;
+          cgltf_texture_view*           albedoView = &pbrMat->base_color_texture;
+          cgltf_texture_view*           normalMapView = &gltfMat->normal_texture;
+          cgltf_texture_view*           metallicRoughnessView = &pbrMat->metallic_roughness_texture;
+
+          if (albedoView->texture) {
+            albedoMap = albedoView->texture;
+            albedoImage = albedoMap->image;
+
+            textureFile = "../data/";
+            textureFile.append(albedoImage->uri);
           }
+
+          if (normalMapView->texture) {
+            normalMap = normalMapView->texture;
+            normalImage = normalMap->image;
+
+            normalMapFile = "../data/";
+            normalMapFile.append(normalImage->uri);
+          }
+
+          if (metallicRoughnessView->texture) {
+            metallicRoughnessMap = metallicRoughnessView->texture;
+            metallicRoughnessImage = metallicRoughnessMap->image;
+
+            metallicRoughnessMapFile = "../data/";
+            metallicRoughnessMapFile.append(metallicRoughnessImage->uri);
+          }
+          else {
+            baseColor = vec4f(pbrMat->base_color_factor[0], pbrMat->base_color_factor[1],
+                              pbrMat->base_color_factor[2], pbrMat->base_color_factor[3]);
+            metallicness = pbrMat->metallic_factor;
+            roughness = pbrMat->roughness_factor;
+          }
+
+          shared_ptr<imagePNG>  albedoPNG;
+          shared_ptr<imagePNG>  normalPNG;
+          shared_ptr<imagePNG>  metallicRoughnessPNG;
+
+          if (!textureFile.empty())
+            albedoPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
+
+          if (!normalMapFile.empty())
+            normalPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
+
+          if (!metallicRoughnessMapFile.empty())
+            metallicRoughnessPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
+
+          shared_ptr<pbrMetallicRoughness> blah = make_shared<pbrMetallicRoughness>(
+                              albedoPNG,
+                              normalPNG,
+                              metallicRoughnessPNG,
+                              baseColor, metallicness, roughness);
+          newMesh->matPtr = blah;
+          int blah2 = 0;
         }
       }
       
       // read in triangle data
-      if (prim->type == cgltf_primitive_type_triangles) {
-        cgltf_accessor*     a = prim->indices;
+      if (gltfPrim->type == cgltf_primitive_type_triangles) {
+        cgltf_accessor*     a = gltfPrim->indices;
         cgltf_buffer_view*  bufferView = a->buffer_view;
         cgltf_buffer*       buffer = bufferView->buffer;
 
@@ -327,10 +391,8 @@ bool gltfLoad(std::string filename, shared_ptr<model> model) {
         uint16_t* index = (uint16_t*)&(byte[bufferView->offset]);
         for (int idx = 0; idx < a->count; idx += 3) {
           model->meshes[primIndex]->triangles.push_back(
-            make_shared<triangle>(index[idx],
-                                  index[idx + 1],
-                                  index[idx + 2],
-                                  model->meshes[primIndex]));
+            triangle::create(index[idx], index[idx + 1],
+                              index[idx + 2], model->meshes[primIndex]));
         }
       }
     }

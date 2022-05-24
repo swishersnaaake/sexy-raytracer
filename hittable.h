@@ -12,6 +12,10 @@ struct hitRecord {
   float   t;
   vec2f   uv;
   bool    frontFace;
+  bool    blah;
+  
+  vec3f   sourceV[3];
+  vec2f   sourceUV[3];
 
   shared_ptr<material> matPtr;
 
