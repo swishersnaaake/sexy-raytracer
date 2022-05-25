@@ -96,6 +96,15 @@ inline vec3f lerp(const vec3f& a, const vec3f& b, float t) {
                 (1.0f - t) * a(2) + t * b(2));
 }
 
+inline vec3f normalIntToFloat(const vec3f& n) {
+  vec3f normal;
+
+  normal(0) = n(0) - 128.0f;  normal(1) = n(1) - 128.0f;  normal(2) = n(2) - 128.0f;
+  normal /= 128.0f;
+
+  return normal;
+}
+
 bool isNan(const vec2f& v) {
   if (!(v(0) == v(0)) ||
         !(v(1) == v(1)))

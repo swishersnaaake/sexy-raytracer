@@ -14,7 +14,7 @@ struct hitRecord;
 
 class material {
   public:
-    virtual bool    scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scattered) const = 0;
+    virtual bool    scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scatterRay) const = 0;
     virtual color3f emitted(float u, float v, const vec3f& p) const {
       return color3f(0, 0, 0);
     }
@@ -43,132 +43,34 @@ class pbrMetallicRoughness : public material {
                           albedoMap(aMap), normalMap(nMap),
                           metallicMap(mMap), roughnessMap(rMap),
                           albedo(vec4f(1.0f, 1.0f, 1.0f, 1.0f)),
-                          metalness(0), roughness(0) {}
+                          metalness(0), roughness(0), anisotropy(0) {}
     pbrMetallicRoughness(shared_ptr<texture> aMap, shared_ptr<texture> nMap,
                           shared_ptr<texture> mMap, shared_ptr<texture> rMap,
                           vec4f a) :
                           albedoMap(aMap), normalMap(nMap),
                           metallicMap(mMap), roughnessMap(rMap),
-                          albedo(a), metalness(0), roughness(0) {}
+                          albedo(a), metalness(0), roughness(0), anisotropy(0) {}
     pbrMetallicRoughness(shared_ptr<texture> aMap, shared_ptr<texture> nMap,
                           shared_ptr<texture> mrMap,
                           vec4f a) :
                           albedoMap(aMap), normalMap(nMap),
                           metallicRoughnessMap(mrMap),
                           metallicMap(0), roughnessMap(0),
-                          albedo(a), metalness(0), roughness(0) {}
+                          albedo(a), metalness(0), roughness(0), anisotropy(0) {}
     pbrMetallicRoughness(shared_ptr<texture> aMap, shared_ptr<texture> nMap,
                           shared_ptr<texture> mrMap,
                           vec4f a, float m, float r) :
                           albedoMap(aMap), normalMap(nMap),
                           metallicRoughnessMap(mrMap),
                           metallicMap(0), roughnessMap(0),
-                          albedo(a), metalness(m), roughness(r) {}
+                          albedo(a), metalness(m), roughness(r), anisotropy(0) {}
     pbrMetallicRoughness(shared_ptr<texture> aMap,
                           vec4f a, float m, float r) :
                           albedoMap(aMap), albedo(a),
-                          metalness(m), roughness(r) {}
+                          metalness(m), roughness(r), anisotropy(0) {}
 
     virtual bool scatter(const ray& rIn, const hitRecord& record, color3f& attenuation,
-                          ray& scattered) const override {
-      vec3f halfVec;
-      vec3f normal;
-      float m;
-      float r;
-
-      Matrix3f tangentToWorld;
-
-      if (albedoMap) {
-        // sample reflected color for this point
-        attenuation = albedoMap->value(record.uv(0), record.uv(1), record.p);
-        attenuation /= 255.0f;
-      }
-      else
-        attenuation = vec3f(albedo(0), albedo(1), albedo(2));
-      
-      if (normalMap && record.blah) {
-        // tangent space to world space xfrom
-        vec3f tangent, bitangent, tangentNormal;
-
-        calcTangentBasis(record.sourceV[0], record.sourceV[1], record.sourceV[2],
-                          record.sourceUV[0], record.sourceUV[1], record.sourceUV[2],
-                          tangent, bitangent);
-        tangentNormal = tangent.cross(bitangent);
-        tangent = unitVector(tangent);
-        bitangent = unitVector(bitangent);
-        tangentNormal = unitVector(tangentNormal);
-        
-        tangentToWorld.row(0) = tangent;
-        tangentToWorld.row(1) = bitangent;
-        tangentToWorld.row(2) = tangentNormal;
-
-        tangentToWorld.transposeInPlace();
-
-        // sample tangent space normal
-        normal = normalMap->value(record.uv(0), record.uv(1), record.p);
-
-        // convert to range -1 to 1
-        normal(0) -= 128.0f; normal(1) -= 128.0f; normal(2) -= 128.0f;
-        normal /= 128.0f;
-
-        // xform tangent space normal to world space
-        normal = tangentToWorld * normal;
-      }
-      else
-        normal = record.normal;
-
-      if (metallicMap) {
-        float value = metallicMap->value(record.uv(0), record.uv(1), record.p)(0) / 255.0f;
-        m = clamp(std::max(metalness + epsilon, value), 0, 1.0f);
-      }
-      else
-        m = metalness;
-
-      if (roughnessMap) {
-        float value = roughnessMap->value(record.uv(0), record.uv(1), record.p)(0) / 255.0f;
-        r = clamp(std::max(roughness + epsilon, value), 0, 1.0f);
-      }
-      else
-        r = roughness;
-      
-      // initial scatter direction based on face normal
-      vec3f  scatterDir = normal + randomUnitVector();
-
-      if (nearZero(scatterDir))
-        scatterDir = normal;
-      
-      scatterDir = unitVector(scatterDir);
-      scattered = ray(record.p, scatterDir, rIn.time);
-
-      vec3f viewVec = unitVector(rIn.dir);
-      halfVec = unitVector(scattered.dir - viewVec);
-      
-      float NdotL = fmaxf(normal.dot(scattered.dir), 0);
-      float NdotH = fmaxf(normal.dot(halfVec), 0);
-      float HdotV = fmaxf(halfVec.dot(-viewVec), 0);
-      float NdotV = fmaxf(normal.dot(-viewVec), 0);
-      float HdotT;
-      float HdotB;
-
-      vec3f fresnelReflectance = vec3f(1.0f, 1.0f, 1.0f);
-
-      vec3f F0 = lerp(vec3f(0.4f, 0.4f, 0.4f), fresnelReflectance, m);
-      float D = trowbridgeReitzNDF(NdotH, r);
-      vec3f F = fresnelEpic(F0, HdotV);
-      float G = schlickGAF(NdotL, r) * schlickGAF(NdotV, r);
-
-      vec3f finalDiffuse = (attenuation / pi);
-      finalDiffuse(0) *= (1.0f - F(0));  finalDiffuse(1) *= (1.0f - F(1));  finalDiffuse(2) *= (1.0f - F(2));
-      finalDiffuse *= (1.0f - m);
-
-      finalDiffuse(0) *= albedo(0); finalDiffuse(1) *= albedo(1); finalDiffuse(2) *= albedo(2);
-
-      vec3f finalSpecular = D * F * G / (4.0f * NdotV * NdotL + epsilon);
-
-      attenuation = vec3f((finalDiffuse + finalSpecular) * NdotL);
-
-      return true;
-    }
+                          ray& scatterRay) const override;
 
   public:
     shared_ptr<texture> albedoMap;
@@ -179,18 +81,19 @@ class pbrMetallicRoughness : public material {
     vec4f               albedo;
     float               metalness;
     float               roughness;
+    float               anisotropy;
 };
 
 class metal : public material {
   public:
     metal(const color3f& a, float f) : albedo(a), fuzz(f < 1.0f ? f : 1.0f) {}
 
-    virtual bool scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scattered) const override {
+    virtual bool scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scatterRay) const override {
       vec3f reflected = reflect(unitVector(rIn.dir), record.normal);
-      scattered = ray(record.p, reflected + fuzz * randomInUnitSphere(), rIn.time);
+      scatterRay = ray(record.p, reflected + fuzz * randomInUnitSphere(), rIn.time);
       attenuation = albedo;
 
-      return (scattered.dir.dot(record.normal) > 0);
+      return (scatterRay.dir.dot(record.normal) > 0);
     }
 
   public:
@@ -202,7 +105,7 @@ class dielectric : public material {
   public:
     dielectric(float indexRefraction) : ir(indexRefraction) {}
 
-    virtual bool scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scattered) const override {
+    virtual bool scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scatterRay) const override {
       attenuation = color3f(1.0f, 1.0f, 1.0f);
       float refractionRatio = record.frontFace ? (1.0f / ir) : ir;
 
@@ -218,7 +121,7 @@ class dielectric : public material {
       else
         dir = refract(unitDir, record.normal, refractionRatio);
 
-      scattered = ray(record.p, dir, rIn.time);
+      scatterRay = ray(record.p, dir, rIn.time);
       return true;
     }
   
@@ -238,7 +141,7 @@ class diffuseLight : public material {
     diffuseLight(shared_ptr<texture> a) : emit(a) {}
     diffuseLight(color3f c) : emit(make_shared<solidColor>(c)) {}
 
-    virtual bool    scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scattered) const override {
+    virtual bool    scatter(const ray& rIn, const hitRecord& record, color3f& attenuation, ray& scatterRay) const override {
       return false;
     }
 
@@ -249,5 +152,113 @@ class diffuseLight : public material {
   private:
     shared_ptr<texture> emit;
 };
+
+bool pbrMetallicRoughness::scatter(const ray& rIn, const hitRecord& record,
+              color3f& attenuation, ray& scatterRay) const {
+  vec3f halfVec;
+  vec3f normal;
+  float m;
+  float r;
+
+  if (albedoMap) {
+    // sample reflected color for this point
+    attenuation = albedoMap->value(record.uv(0), record.uv(1), record.p);
+    attenuation /= 255.0f;
+  }
+  else
+    attenuation = vec3f(albedo(0), albedo(1), albedo(2));
+  
+  if (normalMap) {
+    // sample tangent space normal
+    normal = normalMap->value(record.uv(0), record.uv(1), record.p);
+
+    // convert to range -1 to 1
+    normal = normalIntToFloat(normal);
+
+    // construct tangent basis and tangent to world space xfrom
+    if (record.blah) {
+      vec3f tangent, bitangent, tangentNormal;
+
+      calcTangentBasis(record.sourceV[0], record.sourceV[1], record.sourceV[2],
+                        record.sourceUV[0], record.sourceUV[1], record.sourceUV[2],
+                        tangent, bitangent);
+      tangentNormal = tangent.cross(bitangent);
+      tangent = unitVector(tangent);
+      bitangent = unitVector(bitangent);
+      tangentNormal = unitVector(tangentNormal);
+      
+      Matrix3f tangentToWorld;
+      tangentToWorld.col(0) = tangent;
+      tangentToWorld.col(1) = bitangent;
+      tangentToWorld.col(2) = tangentNormal;
+
+      // xform tangent space normal to world space
+      normal = tangentToWorld * normal;
+    }
+    else {
+      //normal = record.normal;
+      quatf q = quatf::FromTwoVectors(vec3f::UnitZ(), record.normal);
+      normal = unitVector(q * normal);
+    }
+  }
+  else
+    normal = record.normal;
+
+  if (metallicMap) {
+    m = clamp(metallicMap->value(record.uv(0), record.uv(1), record.p)(0) / 255.0f, 0, 1.0f);
+  }
+  else
+    m = metalness;
+
+  if (roughnessMap) {
+    r = clamp(roughnessMap->value(record.uv(0), record.uv(1), record.p)(1) / 255.0f, 0, 1.0f);
+  }
+  else
+    r = roughness;
+  
+  // generate random scatter direction from surface normal
+  vec3f  scatterDir = normal + randomUnitVector();
+
+  if (nearZero(scatterDir))
+    scatterDir = normal;
+  
+  scatterDir = unitVector(scatterDir);
+  scatterRay = ray(record.p, scatterDir, rIn.time);
+
+  // BRDF assumes view vector points towards camera
+  vec3f viewVec = -unitVector(rIn.dir);
+
+  // using scatter ray as effective light ray
+  halfVec = unitVector(scatterRay.dir + viewVec);
+  
+  // begin PBR BRDF
+  float NdotL = fmaxf(normal.dot(scatterRay.dir), 0);
+  float NdotH = fmaxf(normal.dot(halfVec), 0);
+  float HdotV = fmaxf(halfVec.dot(viewVec), 0);
+  float NdotV = fmaxf(normal.dot(viewVec), 0);
+  float HdotT; // used for anisotropic BRDFs
+  float HdotB; // used for anisotropic BRDFs
+
+  //vec3f fresnelReflectance = vec3f(1.0f, 1.0f, 1.0f);
+  vec3f fresnelReflectance = vec3f(albedo(0), albedo(1), albedo(2));
+
+  vec3f F0 = lerp(vec3f(0.4f, 0.4f, 0.4f), fresnelReflectance, m);
+  float D = trowbridgeReitzNDF(NdotH, r);
+  vec3f F = fresnelEpic(F0, HdotV);
+  float G = schlickGAF(NdotL, r) * schlickGAF(NdotV, r);
+
+  // final diffuse is a ratio vs specular
+  vec3f finalDiffuse = (attenuation / pi);
+  finalDiffuse(0) *= (1.0f - F(0));  finalDiffuse(1) *= (1.0f - F(1));  finalDiffuse(2) *= (1.0f - F(2));
+  finalDiffuse *= (1.0f - m);
+  finalDiffuse(0) *= albedo(0); finalDiffuse(1) *= albedo(1); finalDiffuse(2) *= albedo(2);
+
+  vec3f finalSpecular = D * F * G / (4.0f * NdotV * NdotL + epsilon);
+
+  // final attenuation *= cosine factor
+  attenuation = vec3f((finalDiffuse + finalSpecular) * NdotL);
+
+  return true;
+}
 
 #endif

@@ -51,7 +51,7 @@ hittableList randomScene() {
     hittableList  scene;
     shared_ptr<model> testModel;
 
-    AffineCompact3f final;
+    AffineCompact3f final = AffineCompact3f::Identity();
     if (0) {
       //testModel = model::create("../data/cube.gltf");
       testModel = model::create("../data/square.gltf");
@@ -64,7 +64,7 @@ hittableList randomScene() {
       AffineCompact3f trans(Translation3f(vec3f(0.0f, 1.0f, 0.0f)));
       final = trans * rotate;
     }
-    else {
+    else if (1) {
       //testModel = model::create("../data/masterchief-sep.gltf");
       testModel = model::create("../data/masterchief2-separate.gltf");
       testModel->init();
@@ -74,6 +74,16 @@ hittableList randomScene() {
       AffineCompact3f scale = AffineCompact3f::Identity();
       scale *= Scaling(0.075f);
       final = trans * rotate * scale;
+    }
+    else {
+      testModel = model::create("../data/scene.gltf");
+      testModel->init();
+
+      /*AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
+      AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
+      AffineCompact3f scale = AffineCompact3f::Identity();
+      scale *= Scaling(0.075f);
+      final = trans * rotate * scale;*/
     }
 
     for (const auto& mesh : testModel->meshes) {
@@ -157,8 +167,8 @@ int main(int, char**) {
   const auto  aspect = 16.0f / 9.0f;
   //const auto  aspect = 3.0f / 2.0f;
   //vec3f       eye(12.0f, 2.0f, 3.0f);
-  vec3f       eye(0.0f, 3.0f, 7.0f);
-  vec3f       lookAt(0, 3.0f, 0);
+  vec3f       eye(0.0f, 3.0f, 5.0f);
+  vec3f       lookAt(0, 2.5f, 0);
   vec3f       vUp(0, 1.0f, 0);
   auto        distToFocus = 10.0f; //(eye - lookAt).length();
   auto        aperture = 0.1f; //2.0f;
@@ -168,8 +178,8 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  const int   imageHeight = 1080;
-  //const int   imageHeight = 240;
+  //const int   imageHeight = 1080;
+  const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
   //const int   numSamples = 500;
   //const int   maxBounce = 50;

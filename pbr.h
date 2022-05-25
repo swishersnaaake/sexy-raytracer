@@ -13,33 +13,46 @@
  *  Attributes:
  *    base color, metallic, roughness, (cavity)
  * 
- *  integrateomega(f(l, v) * Li(l) * (n dot l), dwi)
- *  where
+ *  Rendering Equation:
+ *    integrateOmega(f(l, v) * Li(l) * (n dot l), dwi)
+ * 
+ *    where
+ * 
  *    f(l, v) = diffuse + specular BRDF
+ *    Li(l) = amount of incident light
+ *    (n dot l) = cosine factor
  *  
- *  Lambertian diffuse: f(l, v) = c_diffuse / pi
+ *  Lambertian diffuse for f(l, v):
+ *    diffuseColor / pi
  * 
- *  Cook-Torrance microfacet specular:
- * 
+ *  Cook-Torrance microfacet specular for f(l, v) :
  *    D(h) * F(v, h) * G(l, v, h) / 4 * (n dot l) * (n dot v)
  * 
  *    where
  * 
- *    D: (Disney GGX/Trowbridge-Reitz NDF)
+ *    D: (Disney GGX/Trowbridge-Reitz NDF), concentration/area of microgeometry that could reflect
+ *    from l to v, function of roughness
  *      D(h) = pow(alpha, 2) / (pi * pow((pow(n dot h, 2) * (pow(alpha, 2) - 1) + 1), 2))
  *      with
  *        alpha = pow(roughness, 2)
  * 
- *    G: (Schlick with k = alpha / 2)
+ *    G: (Schlick with k = alpha / 2), % of surface points with m = h that are not shadowed or
+ *    masked, function of roughness
  *      G(l, v, h) = G_1(l) * G_1(v)
  *      G_1(v) = n dot v / ((n dot v) * (1 - k) + k)
  *      with
  *        k = pow(roughness + 1, 2) / 8
  * 
- *    F: (Schlick Fresnel with spherical gaussian approx to replace power)
+ *    F: (Schlick Fresnel with spherical gaussian approx to replace power), Fresnel reflectance of
+ *    active surface points for l, m = h, function of metallicness
  *      F(v, h) = F0 + (1 - F0) * pow(2, (−5.55473(v·h) − 6.98316)(v·h))
  *      with
- *        F0 = specular reflectance color at normal incidence (constant of 0.04 for nonmetals)
+ *        F0 = specular reflectance color at normal incidence (constant of 0.04 for nonmetals,
+ *        tinted by base albedo for metals)
+ * 
+ *    denominator 4 * (n dot l) * (n dot v) is a correction factor, accounts for quantities
+ *    being transformed between the local space of the microgeometry and the overall macrosurface
+ * 
  ******************************************************************************/
 
 float trowbridgeReitzNDF(float NdotH, float roughness) {

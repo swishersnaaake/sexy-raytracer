@@ -138,6 +138,8 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
   if (normal.dot(cross) < 0)
     return false;
 
+  // passed hit test
+  // generate barycentric coordinates
   float d0, d1, d2, r0, r1, r2;
   d0 = distance(p, sourceV[0]);
   d1 = distance(p, sourceV[1]);
@@ -150,9 +152,6 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
 
   u = r0 * sourceUV[0](0) + r1 * sourceUV[1](0) + r2 * sourceUV[2](0);
   v = 1.0f - (r0 * sourceUV[0](1) + r1 * sourceUV[1](1) + r2 * sourceUV[2](1));
-
-  if (isNan(vec2f(u, v)))
-    int blah = 0;
 
   vec3f outwardNormal = unitVector(normal);
   record.t = t;
@@ -351,12 +350,11 @@ bool gltfLoad(std::string filename, shared_ptr<model> model) {
             metallicRoughnessMapFile = "../data/";
             metallicRoughnessMapFile.append(metallicRoughnessImage->uri);
           }
-          else {
-            baseColor = vec4f(pbrMat->base_color_factor[0], pbrMat->base_color_factor[1],
-                              pbrMat->base_color_factor[2], pbrMat->base_color_factor[3]);
-            metallicness = pbrMat->metallic_factor;
-            roughness = pbrMat->roughness_factor;
-          }
+
+          baseColor = vec4f(pbrMat->base_color_factor[0], pbrMat->base_color_factor[1],
+                            pbrMat->base_color_factor[2], pbrMat->base_color_factor[3]);
+          metallicness = pbrMat->metallic_factor;
+          roughness = pbrMat->roughness_factor;
 
           shared_ptr<imagePNG>  albedoPNG;
           shared_ptr<imagePNG>  normalPNG;
@@ -366,18 +364,16 @@ bool gltfLoad(std::string filename, shared_ptr<model> model) {
             albedoPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
 
           if (!normalMapFile.empty())
-            normalPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
+            normalPNG = make_shared<imagePNG>(normalMapFile.c_str(), 3);
 
           if (!metallicRoughnessMapFile.empty())
-            metallicRoughnessPNG = make_shared<imagePNG>(textureFile.c_str(), 3);
+            metallicRoughnessPNG = make_shared<imagePNG>(metallicRoughnessMapFile.c_str(), 3);
 
-          shared_ptr<pbrMetallicRoughness> blah = make_shared<pbrMetallicRoughness>(
+          newMesh->matPtr = make_shared<pbrMetallicRoughness>(
                               albedoPNG,
                               normalPNG,
                               metallicRoughnessPNG,
                               baseColor, metallicness, roughness);
-          newMesh->matPtr = blah;
-          int blah2 = 0;
         }
       }
       
