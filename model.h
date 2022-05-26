@@ -2,7 +2,7 @@
 #define __MODEL_H__
 
 #define CGLTF_IMPLEMENTATION
-#include "cgltf/cgltf.h"
+#include "cgltf.h"
 
 #include "globals.h"
 #include "hittable.h"
@@ -24,6 +24,7 @@ class triangle : public hittable, public std::enable_shared_from_this<triangle> 
 
     virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override;
     virtual int   selectBvhAxis() const override;
 
     inline vec3f getNormal() const;
@@ -52,6 +53,7 @@ class mesh : public hittable, public std::enable_shared_from_this<mesh> {
     
     virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
     
   private:
     mesh() {}
@@ -73,6 +75,7 @@ class model : public hittable, public std::enable_shared_from_this<model> {
 
     virtual bool hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
     virtual bool boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
 
     bool         init() {
       return gltfLoad(filename, getPtr());
@@ -153,18 +156,14 @@ bool triangle::hit(const ray &ray, float tMin, float tMax, hitRecord &record) co
   u = r0 * sourceUV[0](0) + r1 * sourceUV[1](0) + r2 * sourceUV[2](0);
   v = 1.0f - (r0 * sourceUV[0](1) + r1 * sourceUV[1](1) + r2 * sourceUV[2](1));
 
+  // blah outwardNormal redundant here
   vec3f outwardNormal = unitVector(normal);
   record.t = t;
   record.p = ray.at(record.t);
   record.setFaceNormal(ray, outwardNormal);
   record.uv = vec2f(u, v);
   record.matPtr = parentMesh->matPtr;
-  record.blah = true;
-
-  for (int i = 0; i < 3; i++) {
-    record.sourceV[i] = sourceV[i];
-    record.sourceUV[i] = sourceUV[i];
-  }
+  calcTangentBasis(outwardNormal, record.tangent, record.bitangent);
 
   return true;
 }
@@ -198,6 +197,29 @@ bool triangle::boundingBox(float time0, float time1, aabb& outputBox) const {
   outputBox = surroundingBox(box0, box1);
 
   return true;
+}
+
+void triangle::calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const {
+  vec3f edge0 = parentMesh->positions[vertices[1]] - parentMesh->positions[vertices[0]];
+  vec3f edge1 = parentMesh->positions[vertices[2]] - parentMesh->positions[vertices[0]];
+  vec2f deltaUV0 = parentMesh->texcoords[vertices[1]] - parentMesh->texcoords[vertices[0]];;
+  vec2f deltaUV1 = parentMesh->texcoords[vertices[2]] - parentMesh->texcoords[vertices[0]];;
+
+  float f = (deltaUV0(0) * deltaUV1(1) - deltaUV1(0) * deltaUV0(1));
+  if (f == 0)
+    f += epsilon;
+  
+  f = 1.0f / f;
+
+  tangent(0) = f * (deltaUV1(1) * edge0(0) - deltaUV0(1) * edge1(0));
+  tangent(1) = f * (deltaUV1(1) * edge0(1) - deltaUV0(1) * edge1(1));
+  tangent(2) = f * (deltaUV1(1) * edge0(2) - deltaUV0(1) * edge1(2));
+  tangent = unitVector(tangent);
+
+  bitangent(0) = f * (-deltaUV1(0) * edge0(0) + deltaUV0(0) * edge1(0));
+  bitangent(1) = f * (-deltaUV1(0) * edge0(1) + deltaUV0(0) * edge1(1));
+  bitangent(2) = f * (-deltaUV1(0) * edge0(2) + deltaUV0(0) * edge1(2));
+  bitangent = unitVector(bitangent);
 }
 
 int triangle::selectBvhAxis() const {

@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(sexy-raytracer VERSION 0.1.0)
 
+include_directories(/home/lupyenyoung/Documents/work/git/eigen)
+include_directories(/home/lupyenyoung/Documents/work/git/cgltf)
+include_directories(/home/lupyenyoung/Documents/work/git/stb)
+include_directories(/home/lupyenyoung/Documents/work/git/glfw/include)
+include_directories(/home/lupyenyoung/Documents/work/git/glad/build/include)
+
 include(CTest)
 enable_testing()
 

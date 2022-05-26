@@ -14,6 +14,7 @@
 #include "material.h"
 #include "bvh.h"
 #include "rtpstbimage.h"
+#include "gl.h"
 
 using namespace Eigen;
 
@@ -47,119 +48,119 @@ color3f rayColor(const ray &r, const color3f& background, const hittable &world,
 }
 
 hittableList randomScene() {
-    hittableList  objects;
-    hittableList  scene;
-    shared_ptr<model> testModel;
+  hittableList  objects;
+  hittableList  scene;
+  shared_ptr<model> testModel;
 
-    AffineCompact3f final = AffineCompact3f::Identity();
-    if (0) {
-      //testModel = model::create("../data/cube.gltf");
-      testModel = model::create("../data/square.gltf");
-      testModel->init();
+  AffineCompact3f final = AffineCompact3f::Identity();
+  if (0) {
+    //testModel = model::create("../data/cube.gltf");
+    testModel = model::create("../data/square.gltf");
+    testModel->init();
 
-      //AngleAxisf      rotate(deg2rad(180.0f), vec3f::UnitX());
-      AngleAxisf      rotate(deg2rad(-15.0f), vec3f::UnitY());
-      //AngleAxisf      rotate(deg2rad(45.0f), unitVector(vec3f::UnitX() +
-                                                        //vec3f::UnitY()));
-      AffineCompact3f trans(Translation3f(vec3f(0.0f, 1.0f, 0.0f)));
-      final = trans * rotate;
+    //AngleAxisf      rotate(deg2rad(180.0f), vec3f::UnitX());
+    AngleAxisf      rotate(deg2rad(-15.0f), vec3f::UnitY());
+    //AngleAxisf      rotate(deg2rad(45.0f), unitVector(vec3f::UnitX() +
+                                                      //vec3f::UnitY()));
+    AffineCompact3f trans(Translation3f(vec3f(0.0f, 1.0f, 0.0f)));
+    final = trans * rotate;
+  }
+  else if (1) {
+    //testModel = model::create("../data/masterchief-sep.gltf");
+    testModel = model::create("../data/masterchief2-separate.gltf");
+    testModel->init();
+
+    AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
+    AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
+    AffineCompact3f scale = AffineCompact3f::Identity();
+    scale *= Scaling(0.075f);
+    final = trans * rotate * scale;
+  }
+  else {
+    testModel = model::create("../data/scene.gltf");
+    testModel->init();
+
+    /*AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
+    AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
+    AffineCompact3f scale = AffineCompact3f::Identity();
+    scale *= Scaling(0.075f);
+    final = trans * rotate * scale;*/
+  }
+
+  for (const auto& mesh : testModel->meshes) {
+    for (auto& pos : mesh->positions) {
+      pos = final * pos;
     }
-    else if (1) {
-      //testModel = model::create("../data/masterchief-sep.gltf");
-      testModel = model::create("../data/masterchief2-separate.gltf");
-      testModel->init();
+  }
 
-      AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
-      AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
-      AffineCompact3f scale = AffineCompact3f::Identity();
-      scale *= Scaling(0.075f);
-      final = trans * rotate * scale;
+  for (const auto& mesh : testModel->meshes) {
+    for (const auto& tri : mesh->triangles) {
+      objects.add(tri);
     }
-    else {
-      testModel = model::create("../data/scene.gltf");
-      testModel->init();
+  }
 
-      /*AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
-      AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
-      AffineCompact3f scale = AffineCompact3f::Identity();
-      scale *= Scaling(0.075f);
-      final = trans * rotate * scale;*/
-    }
-
-    for (const auto& mesh : testModel->meshes) {
-      for (auto& pos : mesh->positions) {
-        pos = final * pos;
-      }
-    }
-
-    for (const auto& mesh : testModel->meshes) {
-      for (const auto& tri : mesh->triangles) {
-        objects.add(tri);
-      }
-    }
-
-    //auto ground_material = make_shared<pbrMetallicRoughness>(color3f(0.5, 0.5, 0.5));
-    auto checkerTex = make_shared<checker>(color3f(0.2f, 0.3f, 0.1f), color3f(0.9f, 0.9f, 0.9f));
-    objects.add(make_shared<sphere>(vec3f(0,-1000,0.0f), vec3f(0,-1000,0.0f), 0, 1.0f, 1000, make_shared<pbrMetallicRoughness>(checkerTex)));
+  //auto ground_material = make_shared<pbrMetallicRoughness>(color3f(0.5, 0.5, 0.5));
+  auto checkerTex = make_shared<checker>(color3f(0.2f, 0.3f, 0.1f), color3f(0.9f, 0.9f, 0.9f));
+  objects.add(make_shared<sphere>(vec3f(0,-1000,0.0f), vec3f(0,-1000,0.0f), 0, 1.0f, 1000, make_shared<pbrMetallicRoughness>(checkerTex)));
 
 /*    for (int a = -11; a < 11; a++) {
-        for (int b = -11; b < 11; b++) {
-            auto choose_mat = randomFloat();
-            vec3f center(a + 0.9*randomFloat(), 0.2f, b + 0.9f*randomFloat());
+      for (int b = -11; b < 11; b++) {
+          auto choose_mat = randomFloat();
+          vec3f center(a + 0.9*randomFloat(), 0.2f, b + 0.9f*randomFloat());
 
-            if (length(center - vec3f(4, 0.2, 0)) > 0.9) {
-                shared_ptr<material> sphere_material;
+          if (length(center - vec3f(4, 0.2, 0)) > 0.9) {
+              shared_ptr<material> sphere_material;
 
-                if (choose_mat < 0.8) {
-                    // diffuse
-                    //auto albedo = randomVec3f() * randomVec3f();
-                    color3f albedo(randomFloat() * randomFloat(),
-                                    randomFloat() * randomFloat(),
-                                    randomFloat() * randomFloat());
-                    sphere_material = make_shared<pbrMetallicRoughness>(albedo);
-                    vec3f  center2 = center + vec3f(0, randomFloat(0, 0.5f), 0);
-                    spheres.add(make_shared<sphere>(center, center2, 0, 1.0f, 0.2f, sphere_material));
-                } else if (choose_mat < 0.95f) {
-                    // metal
-                    auto albedo = randomVec3f(0.5f, 1);
-                    auto fuzz = randomFloat(0, 0.5f);
-                    sphere_material = make_shared<metal>(albedo, fuzz);
-                    spheres.add(make_shared<sphere>(center, center, 0, 1.0f, 0.2f, sphere_material));
-                } else {
-                    // glass
-                    sphere_material = make_shared<dielectric>(1.5f);
-                    spheres.add(make_shared<sphere>(center, center, 0, 1.0f, 0.2f, sphere_material));
-                }
-            }
-        }
-    }*/
+              if (choose_mat < 0.8) {
+                  // diffuse
+                  //auto albedo = randomVec3f() * randomVec3f();
+                  color3f albedo(randomFloat() * randomFloat(),
+                                  randomFloat() * randomFloat(),
+                                  randomFloat() * randomFloat());
+                  sphere_material = make_shared<pbrMetallicRoughness>(albedo);
+                  vec3f  center2 = center + vec3f(0, randomFloat(0, 0.5f), 0);
+                  spheres.add(make_shared<sphere>(center, center2, 0, 1.0f, 0.2f, sphere_material));
+              } else if (choose_mat < 0.95f) {
+                  // metal
+                  auto albedo = randomVec3f(0.5f, 1);
+                  auto fuzz = randomFloat(0, 0.5f);
+                  sphere_material = make_shared<metal>(albedo, fuzz);
+                  spheres.add(make_shared<sphere>(center, center, 0, 1.0f, 0.2f, sphere_material));
+              } else {
+                  // glass
+                  sphere_material = make_shared<dielectric>(1.5f);
+                  spheres.add(make_shared<sphere>(center, center, 0, 1.0f, 0.2f, sphere_material));
+              }
+          }
+      }
+  }*/
 #if 1
-    //auto material1 = make_shared<dielectric>(1.5);
-    //spheres.add(make_shared<sphere>(vec3f(0, 1, 0), vec3f(0, 1, 0), 0, 1.0f, 1.0f, material1));
-    auto lightMat = make_shared<diffuseLight>(color3f(250.2f, 220.9f, 110.2f));
-    objects.add(make_shared<sphere>(vec3f(-7.0f, 4.0f, 6.0f), vec3f(-7.0f, 4.0f, 6.0f), 0, 1.0f, 1.0f, lightMat));
+  //auto material1 = make_shared<dielectric>(1.5);
+  //spheres.add(make_shared<sphere>(vec3f(0, 1, 0), vec3f(0, 1, 0), 0, 1.0f, 1.0f, material1));
+  auto lightMat = make_shared<diffuseLight>(color3f(250.2f, 220.9f, 110.2f));
+  objects.add(make_shared<sphere>(vec3f(-7.0f, 4.0f, 6.0f), vec3f(-7.0f, 4.0f, 6.0f), 0, 1.0f, 1.0f, lightMat));
 
-    //auto material2 = make_shared<pbrMetallicRoughness>(color3f(0.4, 0.2, 0.1));
-    //spheres.add(make_shared<sphere>(vec3f(-4, 1, 0), vec3f(-4, 1, 0), 0, 1.0f, 1.0f, material2));
-    //spheres.add(make_shared<sphere>(vec3f(0, 1, 2.25f), vec3f(0, 1, 2.25f), 0, 1.0f, 1.0f, material2));
+  //auto material2 = make_shared<pbrMetallicRoughness>(color3f(0.4, 0.2, 0.1));
+  //spheres.add(make_shared<sphere>(vec3f(-4, 1, 0), vec3f(-4, 1, 0), 0, 1.0f, 1.0f, material2));
+  //spheres.add(make_shared<sphere>(vec3f(0, 1, 2.25f), vec3f(0, 1, 2.25f), 0, 1.0f, 1.0f, material2));
 
-    auto ironAlbedo = make_shared<imagePNG>("../data/rustediron2_basecolor-2x1.png", 3);
-    auto ironNMap = make_shared<imagePNG>("../data/rustediron2_normal-2x1.png", 3);
-    auto ironMMap = make_shared<imagePNG>("../data/rustediron2_metallic-2x1.png", 1);
-    auto ironRMap = make_shared<imagePNG>("../data/rustediron2_roughness-2x1.png", 1);
-    auto ironMat = make_shared<pbrMetallicRoughness>(ironAlbedo, ironNMap,
-                                                      ironMMap, ironRMap,
-                                                      vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-    objects.add(make_shared<sphere>(vec3f(-3.0f, 1.0f, 0.0f), vec3f(-3.0f, 1.0f, 0.0f), 0, 1.0f, 1.0f,
-                                    ironMat));
+  auto ironAlbedo = make_shared<imagePNG>("../data/rustediron2_basecolor-2x1.png", 3);
+  auto ironNMap = make_shared<imagePNG>("../data/rustediron2_normal-2x1.png", 3);
+  auto ironMMap = make_shared<imagePNG>("../data/rustediron2_metallic-2x1.png", 1);
+  auto ironRMap = make_shared<imagePNG>("../data/rustediron2_roughness-2x1.png", 1);
+  auto ironMat = make_shared<pbrMetallicRoughness>(ironAlbedo, ironNMap,
+                                                    ironMMap, ironRMap,
+                                                    vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+  objects.add(make_shared<sphere>(vec3f(-3.0f, 1.0f, 0.0f), vec3f(-3.0f, 1.0f, 0.0f), 0, 1.0f, 1.0f,
+                                  ironMat));
 
-    auto material3 = make_shared<metal>(color3f(0.7, 0.6, 0.5), 0.0);
-    objects.add(make_shared<sphere>(vec3f(3.0f, 1.0f, 0), vec3f(3.0f, 1.0f, 0), 0, 1.0f, 1.0f, material3));
+  auto material3 = make_shared<metal>(color3f(0.7, 0.6, 0.5), 0.0);
+  objects.add(make_shared<sphere>(vec3f(3.0f, 1.0f, 0), vec3f(3.0f, 1.0f, 0), 0, 1.0f, 1.0f, material3));
 #endif
-    scene.add(make_shared<bvhNode>(objects, 0, 1));
-    return scene;
+  scene.add(make_shared<bvhNode>(objects, 0, 1));
+  return scene;
 
-    //return objects;
+  //return objects;
 }
 
 int main(int, char**) {
@@ -178,12 +179,12 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  //const int   imageHeight = 1080;
-  const int   imageHeight = 240;
+  const int   imageHeight = 1080;
+  //const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
   //const int   numSamples = 500;
   //const int   maxBounce = 50;
-  const int   numSamples = 1000;
+  const int   numSamples = 2000;
   //const int   numSamples = 4;
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);

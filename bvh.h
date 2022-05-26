@@ -18,6 +18,7 @@ class bvhNode : public hittable {
     
     virtual bool  hit(const ray& r, float tMin, float tMax, hitRecord& record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
 
   public:
     shared_ptr<hittable>  left;

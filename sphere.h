@@ -15,6 +15,7 @@ class sphere : public hittable {
 
     virtual bool  hit(const ray &ray, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const override;
 
     vec3f         center(float time) const;
 
@@ -67,7 +68,7 @@ bool sphere::hit(const ray &ray, float tMin, float tMax, hitRecord &record) cons
   record.setFaceNormal(ray, outwardNormal);
   getSphereUV(outwardNormal, record.uv);
   record.matPtr = matPtr;
-  record.blah = false;
+  calcTangentBasis(outwardNormal, record.tangent, record.bitangent);
 
   return true;
 }
@@ -81,6 +82,18 @@ bool sphere::boundingBox(float time0, float time1, aabb& outputBox) const {
   outputBox = surroundingBox(box0, box1);
   
   return true;
+}
+
+void sphere::calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const {
+  vec3f b;
+
+  if (1.0f - (fabsf(normal.dot(vec3f::UnitY()))) < epsilon)
+    b = -vec3f::UnitZ();
+  else
+    b = vec3f::UnitY();
+  
+  tangent = unitVector(b.cross(normal));
+  bitangent = unitVector(normal.cross(tangent));
 }
 
 #endif

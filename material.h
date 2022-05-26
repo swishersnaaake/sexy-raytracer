@@ -175,31 +175,14 @@ bool pbrMetallicRoughness::scatter(const ray& rIn, const hitRecord& record,
     // convert to range -1 to 1
     normal = normalIntToFloat(normal);
 
-    // construct tangent basis and tangent to world space xfrom
-    if (record.blah) {
-      vec3f tangent, bitangent, tangentNormal;
+    // construct tangent to world space xfrom
+    Matrix3f tangentToWorld;
+    tangentToWorld.col(0) = record.tangent;
+    tangentToWorld.col(1) = record.bitangent;
+    tangentToWorld.col(2) = record.normal;
 
-      calcTangentBasis(record.sourceV[0], record.sourceV[1], record.sourceV[2],
-                        record.sourceUV[0], record.sourceUV[1], record.sourceUV[2],
-                        tangent, bitangent);
-      tangentNormal = tangent.cross(bitangent);
-      tangent = unitVector(tangent);
-      bitangent = unitVector(bitangent);
-      tangentNormal = unitVector(tangentNormal);
-      
-      Matrix3f tangentToWorld;
-      tangentToWorld.col(0) = tangent;
-      tangentToWorld.col(1) = bitangent;
-      tangentToWorld.col(2) = tangentNormal;
-
-      // xform tangent space normal to world space
-      normal = tangentToWorld * normal;
-    }
-    else {
-      //normal = record.normal;
-      quatf q = quatf::FromTwoVectors(vec3f::UnitZ(), record.normal);
-      normal = unitVector(q * normal);
-    }
+    // xform tangent space normal to world space
+    normal = unitVector(tangentToWorld * normal);
   }
   else
     normal = record.normal;
