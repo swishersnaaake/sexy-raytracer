@@ -5,4 +5,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+extern bool glInit(int width, int height);
+extern bool glFrame();
+extern void glTerminate();
+
 #endif

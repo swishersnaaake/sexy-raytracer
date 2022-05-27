@@ -179,19 +179,20 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  const int   imageHeight = 1080;
+  const int   imageHeight = 720;
   //const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
   //const int   numSamples = 500;
   //const int   maxBounce = 50;
-  const int   numSamples = 2000;
-  //const int   numSamples = 4;
+  //const int   numSamples = 2000;
+  const int   numSamples = 4;
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);
   uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 3 * imageWidth * imageHeight));
 
   // world
   hittableList world = randomScene();
+  glInit(imageWidth, imageHeight);
 
   std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
 
@@ -213,12 +214,16 @@ int main(int, char**) {
         //auto  v = float((h + newSamplePos(1)) / (imageHeight - 1));
         ray   r = mainCamera.getRay(u, v);
         pixelColor += rayColor(r, background, world, maxBounce);
+
+        glFrame();
       }
 
       //writeColor(std::cout, pixelColor, numSamples);
       writeColorTarget(target, x, imageHeight - y, imageWidth, imageHeight, 3, pixelColor, numSamples);
     }
   }
+
+  glTerminate();
 
   stbi_write_png("test.png", imageWidth, imageHeight, 3, target, 3 * imageWidth);
   free(target);
