@@ -13,7 +13,7 @@
 #include "camera.h"
 #include "material.h"
 #include "bvh.h"
-#include "rtpstbimage.h"
+#include "srtstbimage.h"
 #include "gl.h"
 
 using namespace Eigen;
@@ -165,8 +165,8 @@ hittableList randomScene() {
 
 int main(int, char**) {
   // camera
-  const auto  aspect = 16.0f / 9.0f;
-  //const auto  aspect = 3.0f / 2.0f;
+  //const auto  aspect = 16.0f / 9.0f;
+  const auto  aspect = 2.0f;
   //vec3f       eye(12.0f, 2.0f, 3.0f);
   vec3f       eye(0.0f, 3.0f, 5.0f);
   vec3f       lookAt(0, 2.5f, 0);
@@ -179,8 +179,8 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  const int   imageHeight = 720;
-  //const int   imageHeight = 240;
+  //const int   imageHeight = 720;
+  const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
   //const int   numSamples = 500;
   //const int   maxBounce = 50;
@@ -194,32 +194,32 @@ int main(int, char**) {
   hittableList world = randomScene();
   glInit(imageWidth, imageHeight);
 
-  std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
+  //std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
 
-  for (int y = imageHeight -1; y >= 0; --y) {
-    std::cerr << "\rScanlines remaining: " << y << ' ' << std::flush;
-    for (int x = 0; x < imageWidth; ++x) {
-      color3f pixelColor(0, 0, 0);
-      for (int s = 0; s < numSamples; ++s) {
-        AngleAxisf rotate(deg2rad(15.0f) + deg2rad(90.0f * s), vec3f::UnitZ());
-        mat33f     m = rotate.matrix();
-        vec3f      newSamplePos = m * samplePos;
+  while (glFrame(target, imageWidth, imageHeight)) {
+    for (int y = imageHeight -1; y >= 0; --y) {
+      std::cerr << "\rScanlines remaining: " << y << ' ' << std::flush;
+      for (int x = 0; x < imageWidth; ++x) {
+        color3f pixelColor(0, 0, 0);
+        for (int s = 0; s < numSamples; ++s) {
+          AngleAxisf rotate(deg2rad(15.0f) + deg2rad(90.0f * s), vec3f::UnitZ());
+          mat33f     m = rotate.matrix();
+          vec3f      newSamplePos = m * samplePos;
 
-        // random samples
-        auto  u = float(x + randomFloat()) / (imageWidth - 1);
-        auto  v = float(y + randomFloat()) / (imageHeight - 1);
+          // random samples
+          auto  u = float(x + randomFloat()) / (imageWidth - 1);
+          auto  v = float(y + randomFloat()) / (imageHeight - 1);
 
-        // 4x rotated grid
-        //auto  u = float((w + newSamplePos(0)) / (imageWidth - 1));
-        //auto  v = float((h + newSamplePos(1)) / (imageHeight - 1));
-        ray   r = mainCamera.getRay(u, v);
-        pixelColor += rayColor(r, background, world, maxBounce);
+          // 4x rotated grid
+          //auto  u = float((w + newSamplePos(0)) / (imageWidth - 1));
+          //auto  v = float((h + newSamplePos(1)) / (imageHeight - 1));
+          ray   r = mainCamera.getRay(u, v);
+          pixelColor += rayColor(r, background, world, maxBounce);
+        }
 
-        glFrame();
+        //writeColor(std::cout, pixelColor, numSamples);
+        writeColorTarget(target, x, imageHeight - y, imageWidth, imageHeight, 3, pixelColor, numSamples);
       }
-
-      //writeColor(std::cout, pixelColor, numSamples);
-      writeColorTarget(target, x, imageHeight - y, imageWidth, imageHeight, 3, pixelColor, numSamples);
     }
   }
 

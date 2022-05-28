@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "globals.h"
-#include "rtpstbimage.h"
+#include "srtstbimage.h"
 
 using std::uint8_t;
 
