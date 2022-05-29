@@ -24,7 +24,10 @@ class gl3D {
     void terminate();
   
   private:
-    bool loadShaders(const char* vsFilePath, const char* fsFilePath);
+    bool loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath);
+    
+    unsigned int  loadShader(const char* shaderPath, unsigned int shaderType);
+    unsigned int  buildGraphicsProgram(unsigned int vs, unsigned int fs);
 
     static void errorCallback(int error, const char* description) {
       //fprintf(stderr, "Error: %s\n", description);
@@ -38,14 +41,11 @@ class gl3D {
   
   private:
     GLFWwindow*   glfwWin;
+
     unsigned int  rtFrameTexID;
-    unsigned int  posVBO;
-    unsigned int  texCoordVBO;
-    unsigned int  indexEBO;
-    unsigned int  rtFrameVAO;
-    unsigned int  vertexShader;
-    unsigned int  fragmentShader;
-    unsigned int  shaderProgram;
+    unsigned int  rtFramePosVBO, rtFrameUVVBO, rtFrameIndexEBO, rtFrameVAO;
+
+    unsigned int  rtFrameVS, rtFrameFS, rtFrameProgram;
 
     const float     rtFramePos[12] = {
       1.0f, -1.0f, 0,
@@ -67,65 +67,73 @@ class gl3D {
     };
 };
 
-bool gl3D::loadShaders(const char* vsFilePath, const char* fsFilePath) {
-  std::string   vsCode, fsCode;
-  std::ifstream vsFile, fsFile;
+unsigned int gl3D::loadShader(const char* shaderPath, unsigned int shaderType) {
+  unsigned int  shader = 0;
+  std::string   shaderCode;
+  std::ifstream shaderFile;
 
-  vsFile.exceptions (std::ifstream::failbit | std::ifstream::badbit);
-  fsFile.exceptions (std::ifstream::failbit | std::ifstream::badbit);
+  shaderFile.exceptions (std::ifstream::failbit | std::ifstream::badbit);
 
   try {
-    vsFile.open(vsFilePath);
-    fsFile.open(fsFilePath);
-
-    std::stringstream vsStream, fsStream;
-    vsStream << vsFile.rdbuf();
-    fsStream << fsFile.rdbuf();
-
-    vsFile.close();
-    fsFile.close();
-
-    vsCode = vsStream.str();
-    fsCode = fsStream.str();
+    shaderFile.open(shaderPath);
+    std::stringstream shaderStream;
+    shaderStream << shaderFile.rdbuf();
+    shaderFile.close();
+    shaderCode = shaderStream.str();
   }
   catch (std::ifstream::failure e) {
     std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
+    return shader;
   }
 
-  const char* vsShader = vsCode.c_str();
-  const char* fsShader = fsCode.c_str();
-  char        infoLog[512];
+  int   success;
+  char  infoLog[512];
 
-  int success;
-  vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vertexShader, 1, &vsShader, NULL);
-  glCompileShader(vertexShader);
-  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+  const char* shaderString = shaderCode.c_str();
+  shader = glCreateShader(shaderType);
+  glShaderSource(shader, 1, &shaderString, NULL);
+  glCompileShader(shader);
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
   if (!success) {
-    glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    glGetShaderInfoLog(shader, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
+    glDeleteShader(shader);
+    shader = 0;
+
+    return shader;
   }
 
-  fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fragmentShader, 1, &fsShader, NULL);
-  glCompileShader(fragmentShader);
-  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+  return shader;
+}
+
+bool gl3D::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
+  rtFrameVS = loadShader(vsFilePath, GL_VERTEX_SHADER);
+  if (!rtFrameVS)
+    return false;
+  
+  rtFrameFS = loadShader(fsFilePath, GL_FRAGMENT_SHADER);
+  if (!rtFrameFS)
+    return false;
+  
+  rtFrameProgram = glCreateProgram();
+  glAttachShader(rtFrameProgram, rtFrameVS);
+  glAttachShader(rtFrameProgram, rtFrameFS);
+  glLinkProgram(rtFrameProgram);
+
+  int   success;
+  char  infoLog[512];
+  glGetProgramiv(rtFrameProgram, GL_LINK_STATUS, &success);
   if (!success) {
-    glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+    glGetShaderInfoLog(rtFrameProgram, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::PROGRAM::LINK_FAILED\n" << infoLog << std::endl;
+    glDeleteProgram(rtFrameProgram);
+    rtFrameProgram = 0;
+
+    return false;
   }
 
-  shaderProgram = glCreateProgram();
-  glAttachShader(shaderProgram, vertexShader);
-  glAttachShader(shaderProgram, fragmentShader);
-  glLinkProgram(shaderProgram);
-  if (!success) {
-    glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-    std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-  }
-
-  glDeleteShader(vertexShader);
-  glDeleteShader(fragmentShader);
+  glDeleteShader(rtFrameVS);
+  glDeleteShader(rtFrameFS);
 
   return true;
 }
@@ -154,25 +162,25 @@ bool gl3D::init(int width, int height) {
   glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
 
   glGenVertexArrays(1, &rtFrameVAO);
-  glGenBuffers(1, &posVBO);
-  glGenBuffers(1, &texCoordVBO);
-  glGenBuffers(1, &indexEBO);
+  glGenBuffers(1, &rtFramePosVBO);
+  glGenBuffers(1, &rtFrameUVVBO);
+  glGenBuffers(1, &rtFrameIndexEBO);
 
   glBindVertexArray(rtFrameVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, posVBO);
+  glBindBuffer(GL_ARRAY_BUFFER, rtFramePosVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(rtFramePos), rtFramePos, GL_DYNAMIC_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
 
-  glBindBuffer(GL_ARRAY_BUFFER, texCoordVBO);
+  glBindBuffer(GL_ARRAY_BUFFER, rtFrameUVVBO);
   glBufferData(GL_ARRAY_BUFFER, sizeof(rtFrameUVs), rtFrameUVs, GL_DYNAMIC_DRAW);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(1);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexEBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rtFrameIndexEBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rtFrameIndices), rtFrameIndices, GL_DYNAMIC_DRAW);
 
-  loadShaders("../shaders/vs.glsl", "../shaders/fs.glsl");
+  loadGraphicsProgram("../shaders/vs.glsl", "../shaders/fs.glsl");
 
   glGenTextures(1, &rtFrameTexID);
   glBindTexture(GL_TEXTURE_2D, rtFrameTexID);
@@ -189,18 +197,18 @@ bool gl3D::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
   glfwGetFramebufferSize(glfwWin, &fbWidth, &fbHeight);
   GLint  theData[4];
   glGetIntegerv(GL_VIEWPORT, &(theData[0]));
-  glad_glViewport(0, 0, fbWidth, fbHeight);
+  glViewport(0, 0, fbWidth, fbHeight);
   glGetIntegerv(GL_VIEWPORT, &(theData[0]));
   glClear(GL_COLOR_BUFFER_BIT);
 
-  glUseProgram(shaderProgram);
+  glUseProgram(rtFrameProgram);
   glBindVertexArray(rtFrameVAO);
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, rtFrameTexID);
   //glTextureSubImage2D(rtFrameTexID, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, frameData);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, frameData);
-  glUniform1i(glGetUniformLocation(shaderProgram, "tex"), 0);
+  glUniform1i(glGetUniformLocation(rtFrameProgram, "tex"), 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
