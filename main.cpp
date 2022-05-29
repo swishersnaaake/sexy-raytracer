@@ -6,15 +6,17 @@
 #include "Eigen/Geometry"
 
 #include "globals.h"
+#include "srtstbimage.h"
 #include "color.h"
 #include "hittablelist.h"
 #include "sphere.h"
-#include "model.h"
 #include "camera.h"
 #include "material.h"
 #include "bvh.h"
-#include "srtstbimage.h"
+#include "model.h"
 #include "gl.h"
+
+#define USE_OPENGL 1
 
 using namespace Eigen;
 
@@ -165,8 +167,11 @@ hittableList randomScene() {
 
 int main(int, char**) {
   // camera
-  //const auto  aspect = 16.0f / 9.0f;
+#if USE_OPENGL
   const auto  aspect = 2.0f;
+#else
+  const auto  aspect = 16.0f / 9.0f;
+#endif
   //vec3f       eye(12.0f, 2.0f, 3.0f);
   vec3f       eye(0.0f, 3.0f, 5.0f);
   vec3f       lookAt(0, 2.5f, 0);
@@ -179,26 +184,27 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  //const int   imageHeight = 720;
-  const int   imageHeight = 240;
+  const int   imageHeight = 720;
+  //const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
-  //const int   numSamples = 500;
-  //const int   maxBounce = 50;
   //const int   numSamples = 2000;
-  const int   numSamples = 4;
-  const int   maxBounce = 4;
+  const int   numSamples = 1;
+  const int   maxBounce = 1;
   const vec3f samplePos(0, 0.8f, 0);
   uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 3 * imageWidth * imageHeight));
 
   // world
   hittableList world = randomScene();
-  glInit(imageWidth, imageHeight);
+  std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
 
-  //std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
+#if USE_OPENGL
+  gl3D  gl3D;
+  gl3D.init(imageWidth, imageHeight);
 
-  while (glFrame(target, imageWidth, imageHeight)) {
-    for (int y = imageHeight -1; y >= 0; --y) {
-      std::cerr << "\rScanlines remaining: " << y << ' ' << std::flush;
+  while (gl3D.rtFrame(target, imageWidth, imageHeight)) {
+#endif
+    for (int y = 0; y < imageHeight; ++y) {
+      std::cerr << "\rScanlines remaining: " << (imageHeight - y) << ' ' << std::flush;
       for (int x = 0; x < imageWidth; ++x) {
         color3f pixelColor(0, 0, 0);
         for (int s = 0; s < numSamples; ++s) {
@@ -208,7 +214,7 @@ int main(int, char**) {
 
           // random samples
           auto  u = float(x + randomFloat()) / (imageWidth - 1);
-          auto  v = float(y + randomFloat()) / (imageHeight - 1);
+          auto  v = float((imageHeight - y) + randomFloat()) / (imageHeight - 1);
 
           // 4x rotated grid
           //auto  u = float((w + newSamplePos(0)) / (imageWidth - 1));
@@ -218,12 +224,14 @@ int main(int, char**) {
         }
 
         //writeColor(std::cout, pixelColor, numSamples);
-        writeColorTarget(target, x, imageHeight - y, imageWidth, imageHeight, 3, pixelColor, numSamples);
+        writeColorTarget(target, x, y, imageWidth, imageHeight, 3, pixelColor, numSamples);
       }
     }
+#if USE_OPENGL
   }
 
-  glTerminate();
+  gl3D.terminate();
+#endif
 
   stbi_write_png("test.png", imageWidth, imageHeight, 3, target, 3 * imageWidth);
   free(target);

@@ -32,7 +32,7 @@ void writeColorTarget(uint8_t* data, int x, int y, int w, int h, int bpp, color3
   g = sqrtf(g * scale);
   b = sqrtf(b * scale);
 
-  uint8_t*  pixel = &data[(y * w + x) * bpp];
+  uint8_t*  pixel = &(data[(y * w + x) * bpp]);
 
   pixel[0] = static_cast<uint8_t>(256 * clamp(r, 0.0f, 0.999f));
   pixel[1] = static_cast<uint8_t>(256 * clamp(g, 0.0f, 0.999f));

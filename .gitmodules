@@ -1,0 +1,6 @@
+[submodule "glfw"]
+	path = glfw
+	url = git@github.com:glfw/glfw.git
+[submodule "glad"]
+	path = glad
+	url = git@github.com:Dav1dde/glad.git
