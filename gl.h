@@ -15,9 +15,9 @@
 using std::string;
 using std::stringstream;
 
-class gl3D {
+class glDevice {
   public:
-    gl3D() {}
+    glDevice() {}
 
     bool init(int width, int height);
     bool rtFrame(uint8_t* frameData, int frameWidth, int frameHeight);
@@ -67,7 +67,7 @@ class gl3D {
     };
 };
 
-unsigned int gl3D::loadShader(const char* shaderPath, unsigned int shaderType) {
+unsigned int glDevice::loadShader(const char* shaderPath, unsigned int shaderType) {
   unsigned int  shader = 0;
   std::string   shaderCode;
   std::ifstream shaderFile;
@@ -106,7 +106,7 @@ unsigned int gl3D::loadShader(const char* shaderPath, unsigned int shaderType) {
   return shader;
 }
 
-bool gl3D::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
+bool glDevice::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
   rtFrameVS = loadShader(vsFilePath, GL_VERTEX_SHADER);
   if (!rtFrameVS)
     return false;
@@ -138,7 +138,7 @@ bool gl3D::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
   return true;
 }
 
-bool gl3D::init(int width, int height) {
+bool glDevice::init(int width, int height) {
   if (!glfwInit()) {
     return false;
   }
@@ -180,7 +180,7 @@ bool gl3D::init(int width, int height) {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rtFrameIndexEBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rtFrameIndices), rtFrameIndices, GL_DYNAMIC_DRAW);
 
-  loadGraphicsProgram("../shaders/vs.glsl", "../shaders/fs.glsl");
+  loadGraphicsProgram("../shaders/rtFrameVS.glsl", "../shaders/rtFrameFS.glsl");
 
   glGenTextures(1, &rtFrameTexID);
   glBindTexture(GL_TEXTURE_2D, rtFrameTexID);
@@ -188,7 +188,7 @@ bool gl3D::init(int width, int height) {
   return true;
 }
 
-bool gl3D::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
+bool glDevice::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
   if (glfwWindowShouldClose(glfwWin))
     return false;
 
@@ -223,7 +223,7 @@ bool gl3D::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
   return true;
 }
 
-void gl3D::terminate() {
+void glDevice::terminate() {
   glfwDestroyWindow(glfwWin);
   glfwTerminate();
 }

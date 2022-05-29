@@ -198,10 +198,10 @@ int main(int, char**) {
   std::cout << "P3\n" << imageWidth << ' ' << imageHeight << "\n255\n";
 
 #if USE_OPENGL
-  gl3D  gl3D;
-  gl3D.init(imageWidth, imageHeight);
+  glDevice  glDevice;
+  glDevice.init(imageWidth, imageHeight);
 
-  while (gl3D.rtFrame(target, imageWidth, imageHeight)) {
+  while (glDevice.rtFrame(target, imageWidth, imageHeight)) {
 #endif
     for (int y = 0; y < imageHeight; ++y) {
       std::cerr << "\rScanlines remaining: " << (imageHeight - y) << ' ' << std::flush;
@@ -230,7 +230,7 @@ int main(int, char**) {
 #if USE_OPENGL
   }
 
-  gl3D.terminate();
+  glDevice.terminate();
 #endif
 
   stbi_write_png("test.png", imageWidth, imageHeight, 3, target, 3 * imageWidth);
