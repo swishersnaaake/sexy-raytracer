@@ -12,6 +12,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#define USE_COMPUTE 0
+
 using std::string;
 using std::stringstream;
 
@@ -20,14 +22,21 @@ class glDevice {
     glDevice() {}
 
     bool init(int width, int height);
-    bool rtFrame(uint8_t* frameData, int frameWidth, int frameHeight);
+    bool rtFrame(void* frameData, int frameWidth, int frameHeight);
     void terminate();
   
   private:
-    bool loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath);
+    bool buildGraphicsProgram(const char* vsFilePath, const char* fsFilePath);
+    bool buildComputeProgram(const char* csFilePath);
     
     unsigned int  loadShader(const char* shaderPath, unsigned int shaderType);
-    unsigned int  buildGraphicsProgram(unsigned int vs, unsigned int fs);
+
+    void  setDefaultSamplers(void) {
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
 
     static void errorCallback(int error, const char* description) {
       //fprintf(stderr, "Error: %s\n", description);
@@ -42,10 +51,11 @@ class glDevice {
   private:
     GLFWwindow*   glfwWin;
 
-    unsigned int  rtFrameTexID;
+    unsigned int  rtFrameTex, rtFrameComputeTex;
     unsigned int  rtFramePosVBO, rtFrameUVVBO, rtFrameIndexEBO, rtFrameVAO;
 
     unsigned int  rtFrameVS, rtFrameFS, rtFrameProgram;
+    unsigned int  rtFrameCS, rtFrameComputeProgram;
 
     const float     rtFramePos[12] = {
       1.0f, -1.0f, 0,
@@ -106,7 +116,7 @@ unsigned int glDevice::loadShader(const char* shaderPath, unsigned int shaderTyp
   return shader;
 }
 
-bool glDevice::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
+bool glDevice::buildGraphicsProgram(const char* vsFilePath, const char* fsFilePath) {
   rtFrameVS = loadShader(vsFilePath, GL_VERTEX_SHADER);
   if (!rtFrameVS)
     return false;
@@ -124,7 +134,7 @@ bool glDevice::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePat
   char  infoLog[512];
   glGetProgramiv(rtFrameProgram, GL_LINK_STATUS, &success);
   if (!success) {
-    glGetShaderInfoLog(rtFrameProgram, 512, NULL, infoLog);
+    glGetProgramInfoLog(rtFrameProgram, 512, NULL, infoLog);
     std::cout << "ERROR::SHADER::PROGRAM::LINK_FAILED\n" << infoLog << std::endl;
     glDeleteProgram(rtFrameProgram);
     rtFrameProgram = 0;
@@ -138,7 +148,45 @@ bool glDevice::loadGraphicsProgram(const char* vsFilePath, const char* fsFilePat
   return true;
 }
 
+bool glDevice::buildComputeProgram(const char* csFilePath) {
+  int workGroupCount[3];
+  for (int i = 0; i < 3; i++)
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, i, &workGroupCount[i]);
+  
+  int workGroupSize[3];
+  for (int i = 0; i < 3; i++)
+    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, i, &workGroupCount[i]);
+  
+  int workGroupInv;
+  glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &workGroupInv);
+
+  rtFrameCS = loadShader(csFilePath, GL_COMPUTE_SHADER);
+  if (!rtFrameCS)
+    return false;
+  
+  rtFrameComputeProgram = glCreateProgram();
+  glAttachShader(rtFrameComputeProgram, rtFrameCS);
+  glLinkProgram(rtFrameComputeProgram);
+
+  int   success;
+  char  infoLog[512];
+  glGetProgramiv(rtFrameComputeProgram, GL_LINK_STATUS, &success);
+  if (!success) {
+    glGetProgramInfoLog(rtFrameComputeProgram, 512, NULL, infoLog);
+    std::cout << "ERROR::SHADER::PROGRAM::LINK_FAILED\n" << infoLog << std::endl;
+    glDeleteProgram(rtFrameComputeProgram);
+    rtFrameComputeProgram = 0;
+
+    return false;
+  }
+
+  glDeleteShader(rtFrameCS);
+
+  return true;
+}
+
 bool glDevice::init(int width, int height) {
+  // set up glfw
   if (!glfwInit()) {
     return false;
   }
@@ -156,11 +204,14 @@ bool glDevice::init(int width, int height) {
   glfwSetKeyCallback(glfwWin, keyCallback);
 
   glfwMakeContextCurrent(glfwWin);
+
+  // set up extensions loader
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     int blah = 0;
   glfwSwapInterval(1);
   glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
 
+  // set up graphics pipe
   glGenVertexArrays(1, &rtFrameVAO);
   glGenBuffers(1, &rtFramePosVBO);
   glGenBuffers(1, &rtFrameUVVBO);
@@ -180,15 +231,27 @@ bool glDevice::init(int width, int height) {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, rtFrameIndexEBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rtFrameIndices), rtFrameIndices, GL_DYNAMIC_DRAW);
 
-  loadGraphicsProgram("../shaders/rtFrameVS.glsl", "../shaders/rtFrameFS.glsl");
+  // graphics shaders
+  buildGraphicsProgram("../shaders/rtFrameVS.glsl", "../shaders/rtFrameFS.glsl");
 
-  glGenTextures(1, &rtFrameTexID);
-  glBindTexture(GL_TEXTURE_2D, rtFrameTexID);
+  // graphics resources
+  glGenTextures(1, &rtFrameTex);
+  glBindTexture(GL_TEXTURE_2D, rtFrameTex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+  // compute shader
+  buildComputeProgram("../shaders/compute.glsl");
+
+  // compute resources
+  glGenTextures(1, &rtFrameComputeTex);
+  glBindTexture(GL_TEXTURE_2D, rtFrameComputeTex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+  glBindImageTexture(0, rtFrameComputeTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
   return true;
 }
 
-bool glDevice::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
+bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
   if (glfwWindowShouldClose(glfwWin))
     return false;
 
@@ -201,18 +264,26 @@ bool glDevice::rtFrame(uint8_t* frameData, int texWidth, int texHeight) {
   glGetIntegerv(GL_VIEWPORT, &(theData[0]));
   glClear(GL_COLOR_BUFFER_BIT);
 
+#if USE_COMPUTE
+  // start compute
+  glUseProgram(rtFrameComputeProgram);
+  glDispatchCompute(texWidth, texHeight, 1);
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+#endif
+
+  // start graphics
   glUseProgram(rtFrameProgram);
   glBindVertexArray(rtFrameVAO);
 
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, rtFrameTexID);
-  //glTextureSubImage2D(rtFrameTexID, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, frameData);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, frameData);
+#if USE_COMPUTE
+  glBindTexture(GL_TEXTURE_2D, rtFrameComputeTex);
+#else
+  glBindTexture(GL_TEXTURE_2D, rtFrameTex);
+  glTextureSubImage2D(rtFrameTex, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, frameData);
+#endif
   glUniform1i(glGetUniformLocation(rtFrameProgram, "tex"), 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  setDefaultSamplers();
 
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
   glBindVertexArray(0);

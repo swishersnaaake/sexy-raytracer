@@ -192,6 +192,7 @@ int main(int, char**) {
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);
   uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 3 * imageWidth * imageHeight));
+  float*      targetF = static_cast<float*>(malloc(sizeof(float) * 3 * imageWidth * imageHeight));
 
   // world
   hittableList world = randomScene();
@@ -201,8 +202,12 @@ int main(int, char**) {
   glDevice  glDevice;
   glDevice.init(imageWidth, imageHeight);
 
+#if USE_COMPUTE
+  while (glDevice.rtFrame(targetF, imageWidth, imageHeight)) {
+#else
   while (glDevice.rtFrame(target, imageWidth, imageHeight)) {
-#endif
+#endif  // USE_COMPUTE
+#endif  // USE_OPENGL
     for (int y = 0; y < imageHeight; ++y) {
       std::cerr << "\rScanlines remaining: " << (imageHeight - y) << ' ' << std::flush;
       for (int x = 0; x < imageWidth; ++x) {
@@ -231,7 +236,7 @@ int main(int, char**) {
   }
 
   glDevice.terminate();
-#endif
+#endif  // USE_OPENGL
 
   stbi_write_png("test.png", imageWidth, imageHeight, 3, target, 3 * imageWidth);
   free(target);
