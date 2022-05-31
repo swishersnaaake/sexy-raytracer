@@ -12,10 +12,19 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#define USE_COMPUTE 0
+#define USE_OPENGL  1
+#define USE_COMPUTE 1
 
 using std::string;
 using std::stringstream;
+
+struct ssboBuffer {
+  vec3f color0;
+  vec3f color1;
+  vec3f color2;
+};
+
+ssboBuffer  tempBuffer;
 
 class glDevice {
   public:
@@ -29,7 +38,7 @@ class glDevice {
     bool buildGraphicsProgram(const char* vsFilePath, const char* fsFilePath);
     bool buildComputeProgram(const char* csFilePath);
     
-    unsigned int  loadShader(const char* shaderPath, unsigned int shaderType);
+    GLuint  loadShader(const char* shaderPath, GLuint shaderType);
 
     void  setDefaultSamplers(void) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -51,11 +60,12 @@ class glDevice {
   private:
     GLFWwindow*   glfwWin;
 
-    unsigned int  rtFrameTex, rtFrameComputeTex;
-    unsigned int  rtFramePosVBO, rtFrameUVVBO, rtFrameIndexEBO, rtFrameVAO;
+    GLuint  rtFrameTex, rtFrameComputeTex;
+    GLuint  rtFramePosVBO, rtFrameUVVBO, rtFrameIndexEBO, rtFrameVAO;
 
-    unsigned int  rtFrameVS, rtFrameFS, rtFrameProgram;
-    unsigned int  rtFrameCS, rtFrameComputeProgram;
+    GLuint  rtFrameVS, rtFrameFS, rtFrameProgram;
+    GLuint  rtFrameCS, rtFrameComputeProgram;
+    GLuint  SSBO;
 
     const float     rtFramePos[12] = {
       1.0f, -1.0f, 0,
@@ -77,8 +87,8 @@ class glDevice {
     };
 };
 
-unsigned int glDevice::loadShader(const char* shaderPath, unsigned int shaderType) {
-  unsigned int  shader = 0;
+GLuint glDevice::loadShader(const char* shaderPath, GLuint shaderType) {
+  GLuint  shader = 0;
   std::string   shaderCode;
   std::ifstream shaderFile;
 
@@ -246,12 +256,23 @@ bool glDevice::init(int width, int height) {
   glGenTextures(1, &rtFrameComputeTex);
   glBindTexture(GL_TEXTURE_2D, rtFrameComputeTex);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-  glBindImageTexture(0, rtFrameComputeTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+  glBindImageTexture(1, rtFrameComputeTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+  tempBuffer.color0 = vec3f(1.0f, 0, 0);
+  tempBuffer.color1 = vec3f(0, 1.0f, 0);
+  tempBuffer.color2 = vec3f(0, 0, 1.0f);
+
+  glGenBuffers(1, &SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(tempBuffer), &tempBuffer, GL_DYNAMIC_READ);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   return true;
 }
 
 bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
+  static uint32_t frame = 0;
   if (glfwWindowShouldClose(glfwWin))
     return false;
 
@@ -266,6 +287,20 @@ bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
 
 #if USE_COMPUTE
   // start compute
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO);
+  tempBuffer.color0 = vec3f((frame + 0) % 3 == 0 ? 1.0f : 0,
+                              (frame + 2) % 3 == 0 ? 1.0f : 0,
+                              (frame + 1) % 3 == 0 ? 1.0f : 0);
+  tempBuffer.color1 = vec3f((frame + 1) % 3 == 0 ? 1.0f : 0,
+                              (frame + 0) % 3 == 0 ? 1.0f : 0,
+                              (frame + 2) % 3 == 0 ? 1.0f : 0);
+  tempBuffer.color2 = vec3f((frame + 2) % 3 == 0 ? 1.0f : 0,
+                              (frame + 1) % 3 == 0 ? 1.0f : 0,
+                              (frame + 0) % 3 == 0 ? 1.0f : 0);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(tempBuffer), &tempBuffer);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
   glUseProgram(rtFrameComputeProgram);
   glDispatchCompute(texWidth, texHeight, 1);
   glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
@@ -290,6 +325,8 @@ bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
 
   glfwSwapBuffers(glfwWin);
   glfwPollEvents();
+
+  frame++;
 
   return true;
 }

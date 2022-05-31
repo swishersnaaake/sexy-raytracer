@@ -16,8 +16,6 @@
 #include "model.h"
 #include "gl.h"
 
-#define USE_OPENGL 1
-
 using namespace Eigen;
 
 using std::uint8_t;
