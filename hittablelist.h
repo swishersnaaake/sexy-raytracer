@@ -21,7 +21,10 @@ class hittableList : public hittable {
 
     virtual bool hit(const ray &ray, float tMin, float tMax, hitRecord &record) const override;
     virtual bool boundingBox(float time0, float time1, aabb& outputBox) const override;
-    virtual void calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
+    virtual void calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const override {};
+    virtual int  populateVector(class shared_ptr<class hittableVector> hittableVector) const override {
+        return -1;
+      };
   
   public:
     std::vector<shared_ptr<hittable>> objects;

@@ -3,6 +3,7 @@
 
 #include "globals.h"
 #include "hittable.h"
+#include "hittablevector.h"
 
 class sphere : public hittable {
   public:
@@ -16,6 +17,13 @@ class sphere : public hittable {
     virtual bool  hit(const ray &ray, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
     virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const override;
+
+    virtual int   populateVector(shared_ptr<class hittableVector> hittableVector) const override {
+        int index = hittableVector->objects.size();
+        hittableVector->objects.emplace_back();
+        hittableVector->objects[index].positions[0] = vec4f(999.0f, 999.0f, 999.0f, 1.0f);
+        return index;
+      }
 
     vec3f         center(float time) const;
 

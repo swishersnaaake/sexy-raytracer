@@ -158,6 +158,11 @@ hittableList randomScene() {
   objects.add(make_shared<sphere>(vec3f(3.0f, 1.0f, 0), vec3f(3.0f, 1.0f, 0), 0, 1.0f, 1.0f, material3));
 #endif
   scene.add(make_shared<bvhNode>(objects, 0, 1));
+
+  shared_ptr<hittableVector> sceneIndexed;
+  sceneIndexed = hittableVector::create();
+  sceneIndexed->build(scene);
+  int blah = sceneIndexed->objects.size();
   return scene;
 
   //return objects;

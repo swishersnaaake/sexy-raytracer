@@ -5,7 +5,9 @@
 
 #include "globals.h"
 #include "hittable.h"
+#include "hittableindexed.h"
 #include "hittablelist.h"
+#include "hittablevector.h"
 
 class bvhNode : public hittable {
   public:
@@ -18,7 +20,10 @@ class bvhNode : public hittable {
     
     virtual bool  hit(const ray& r, float tMin, float tMax, hitRecord& record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
-    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& bitangent) const override {};
+
+    // indexed tree for compute shaders
+    virtual int   populateVector(class shared_ptr<hittableVector> hittableVector) const override;
 
   public:
     shared_ptr<hittable>  left;
@@ -86,8 +91,6 @@ bvhNode::bvhNode(const std::vector<shared_ptr<hittable>>& srcObjects,
       !right->boundingBox(time0, time1, boxRight))
       std::cerr << "No bounding box in bvh node constructor.\n";
 
-  //shared_ptr<triangle> triLeft = static_cast<shared_ptr<triangle>>(left);
-  //shared_ptr<triangle> triRight = static_cast<shared_ptr<triangle>>(right);
   box = surroundingBox(boxLeft, boxRight);
 }
 
@@ -104,6 +107,38 @@ bool bvhNode::hit(const ray& r, float tMin, float tMax, hitRecord& record) const
 bool bvhNode::boundingBox(float time0, float time1, aabb &outputBox) const {
   outputBox = box;
   return true;
+}
+
+int bvhNode::populateVector(shared_ptr<hittableVector> hittableVector) const {
+  hittableIndexed entry;
+  int             index = hittableVector->objects.size();
+  int blah0, blah1;
+
+  hittableVector->objects.emplace_back();
+
+  // blah: might be a bug in Eigen?
+  if (left) {
+    blah0 = left->populateVector(hittableVector);
+    hittableVector->objects[index].leftAndRight(0) = blah0;
+    //hittableVector->objects[index].leftAndRight[0] = left->populateVector(hittableVector);
+  }
+  
+  if (right) {
+    blah1 = right->populateVector(hittableVector);
+    hittableVector->objects[index].leftAndRight(1) = blah1;
+    //hittableVector->objects[index].leftAndRight[1] = right->populateVector(hittableVector);
+  }
+
+  hittableVector->objects[index].boxMin = vec4f(box.minimum(0),
+                        box.minimum(1),
+                        box.minimum(2),
+                        0);
+  hittableVector->objects[index].boxMax = vec4f(box.maximum(0),
+                        box.maximum(1),
+                        box.maximum(2),
+                        0);
+
+  return index;
 }
 
 #endif

@@ -6,9 +6,13 @@
 
 #include "Eigen/Core"
 
+using std::int32_t;
+
 using vec2f = Eigen::Vector2f;
 using vec3f = Eigen::Vector3f;
 using vec4f = Eigen::Vector4f;
+//using vec4i = Eigen::Vector4i;
+using vec4i = Eigen::Matrix<int32_t, 4, 1>; // wtf is the size of an int in Eigen?
 using quatf = Eigen::Quaternionf;
 using color3f = Eigen::Vector3f;
 using color4f = Eigen::Vector4f;

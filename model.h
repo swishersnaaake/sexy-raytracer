@@ -5,6 +5,8 @@
 
 #include "globals.h"
 #include "hittable.h"
+#include "hittableindexed.h"
+#include "hittablevector.h"
 #include "material.h"
 
 using std::vector;
@@ -25,6 +27,9 @@ class triangle : public hittable, public std::enable_shared_from_this<triangle> 
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
     virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override;
     virtual int   selectBvhAxis() const override;
+
+    // indexed tree for compute shaders
+    virtual int   populateVector(class shared_ptr<hittableVector> hittableVector) const override;
 
     inline vec3f getNormal() const;
 
@@ -53,6 +58,10 @@ class mesh : public hittable, public std::enable_shared_from_this<mesh> {
     virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
     virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
     virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
+
+    virtual int   populateVector(shared_ptr<hittableVector> hittableVector) const override {
+        return hittableVector->objects.size();
+      }
     
   private:
     mesh() {}
@@ -72,9 +81,13 @@ class model : public hittable, public std::enable_shared_from_this<model> {
       return shared_ptr<model>(new model(fn));
     }
 
-    virtual bool hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
-    virtual bool boundingBox(float time0, float time1, aabb& outputBox) const override;
-    virtual void calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
+    virtual bool  hit(const ray &r, float tMin, float tMax, hitRecord &record) const override;
+    virtual bool  boundingBox(float time0, float time1, aabb& outputBox) const override;
+    virtual void  calcTangentBasis(const vec3f& normal, vec3f& tangent, vec3f& biTangent) const override {}
+
+    virtual int   populateVector(shared_ptr<hittableVector> hittableVector) const override {
+        return hittableVector->objects.size();
+      }
 
     bool         init() {
       return gltfLoad(filename, getPtr());
@@ -231,6 +244,31 @@ int triangle::selectBvhAxis() const {
                 4;
   
   return axis;*/
+}
+
+int triangle::populateVector(shared_ptr<hittableVector> hittableVector) const {
+  hittableIndexed entry;
+  int             index = hittableVector->objects.size();
+
+  hittableVector->objects.emplace_back();
+
+  for (int i = 0; i < 3; i++) {
+    hittableVector->objects[index].positions[i] =
+      vec4f(parentMesh->positions[vertices[i]](0),
+            parentMesh->positions[vertices[i]](1),
+            parentMesh->positions[vertices[i]](2),
+            0);
+    hittableVector->objects[index].UVs[i] =
+      vec4f(parentMesh->texcoords[vertices[i]](0),
+          parentMesh->texcoords[vertices[i]](1),
+          0,
+          0);
+  }
+
+  hittableVector->objects[index].matIndex = vec4i(0, 0, 0, 0);
+  //hittableVector->objects[index].leftAndRight = vec4i(-1, -1, -1, -1);
+
+  return index;
 }
 
 inline vec3f triangle::getNormal() const {
