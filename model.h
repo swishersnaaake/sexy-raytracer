@@ -258,15 +258,17 @@ int triangle::populateVector(shared_ptr<hittableVector> hittableVector) const {
             parentMesh->positions[vertices[i]](1),
             parentMesh->positions[vertices[i]](2),
             0);
-    hittableVector->objects[index].UVs[i] =
+    /*hittableVector->objects[index].UVs[i] =
       vec4f(parentMesh->texcoords[vertices[i]](0),
           parentMesh->texcoords[vertices[i]](1),
           0,
-          0);
+          0);*/
+    hittableVector->objects[index].UVs[i] =
+      vec4f(255.0f, 0, 0, 255.0f);
   }
 
   hittableVector->objects[index].matIndex = vec4i(0, 0, 0, 0);
-  //hittableVector->objects[index].leftAndRight = vec4i(-1, -1, -1, -1);
+  hittableVector->objects[index].leftAndRight = vec4i(-1, -1, -1, -1);
 
   return index;
 }

@@ -112,7 +112,7 @@ bool bvhNode::boundingBox(float time0, float time1, aabb &outputBox) const {
 int bvhNode::populateVector(shared_ptr<hittableVector> hittableVector) const {
   hittableIndexed entry;
   int             index = hittableVector->objects.size();
-  int blah0, blah1;
+  int             blah0, blah1;
 
   hittableVector->objects.emplace_back();
 
@@ -129,6 +129,12 @@ int bvhNode::populateVector(shared_ptr<hittableVector> hittableVector) const {
     //hittableVector->objects[index].leftAndRight[1] = right->populateVector(hittableVector);
   }
 
+  /*hittableVector->objects[index].UVs[0] = vec4f((float)((index) % 3) == 0 ? 255.0f : 0,
+                                                (float)((index + 2) % 3) == 0 ? 255.0f : 0,
+                                                (float)((index + 1) % 3) == 0 ? 255.0f : 0,
+                                                255.0f);*/
+  hittableVector->objects[index].UVs[0] = vec4f(0, 255.0f, 0, 255.0f);
+
   hittableVector->objects[index].boxMin = vec4f(box.minimum(0),
                         box.minimum(1),
                         box.minimum(2),
@@ -140,5 +146,33 @@ int bvhNode::populateVector(shared_ptr<hittableVector> hittableVector) const {
 
   return index;
 }
+
+/*int bvhNode::populateVector(shared_ptr<hittableVector> hittableVector) const {
+  hittableIndexed entry;
+  int             index = hittableVector->objects.size();
+  int             blah0, blah1;
+
+  hittableVector->objects.emplace_back();
+
+  // blah: might be a bug in Eigen?
+  if (left) {
+    blah0 = left->populateVector(hittableVector);
+    hittableVector->objects[index].leftAndRight[0] = blah0;
+    //hittableVector->objects[index].leftAndRight[0] = left->populateVector(hittableVector);
+  }
+  
+  if (right) {
+    blah1 = right->populateVector(hittableVector);
+    hittableVector->objects[index].leftAndRight[1] = blah1;
+    //hittableVector->objects[index].leftAndRight[1] = right->populateVector(hittableVector);
+  }
+
+  hittableVector->objects[index].UVs[0][0] = 0;
+  hittableVector->objects[index].UVs[0][1] = 1.0f;
+  hittableVector->objects[index].UVs[0][2] = 0;
+  hittableVector->objects[index].UVs[0][3] = 0;
+
+  return index;
+}*/
 
 #endif

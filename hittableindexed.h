@@ -29,15 +29,12 @@ struct hittableIndexed {
   vec4f   boxMin, boxMax; // for bvh nodes
   vec4i   leftAndRight;   // for bvh nodes
 
-  hittableIndexed() {
-    /*positions[0] = vec4f(0, 0, 0, 0); positions[1] = vec4f(0, 0, 0, 0); positions[2] = vec4f(0, 0, 0, 0);
-    UVs[0] = vec4f(0, 0, 0, 0); UVs[1] = vec4f(0, 0, 0, 0); UVs[2] = vec4f(0, 0, 0, 0);
-    matIndex = vec4i(-1, -1, -1, -1);
+/*  float   positions[3][4];   // for triangle nodes
+  float   UVs[3][4];         // for triangle nodes
+  int32_t   matIndex[4];       // for triangle nodes
 
-    boxMin = vec4f(0, 0, 0, 0);
-    boxMax = vec4f(0, 0, 0, 0);
-    leftAndRight = vec4i(-1, -1, -1, -1);*/
-  }
+  float   boxMin[4], boxMax[4]; // for bvh nodes
+  int32_t   leftAndRight[4];   // for bvh nodes*/
 };
 
 #endif

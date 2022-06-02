@@ -26,6 +26,8 @@ using mat34f = Matrix<float, 3, 4/*, Eigen::RowMajor*/>;
 using mat44f = Matrix<float, 4, 4/*, Eigen::RowMajor*/>;
 using quatf = Quaternion<float>;
 
+shared_ptr<hittableVector> sceneIndexed;
+
 color3f rayColor(const ray &r, const color3f& background, const hittable &world, int maxBounce) {
   hitRecord record;
 
@@ -159,7 +161,6 @@ hittableList randomScene() {
 #endif
   scene.add(make_shared<bvhNode>(objects, 0, 1));
 
-  shared_ptr<hittableVector> sceneIndexed;
   sceneIndexed = hittableVector::create();
   sceneIndexed->build(scene);
   int blah = sceneIndexed->objects.size();
@@ -194,8 +195,9 @@ int main(int, char**) {
   const int   numSamples = 4;
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);
-  uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 3 * imageWidth * imageHeight));
-  float*      targetF = static_cast<float*>(malloc(sizeof(float) * 3 * imageWidth * imageHeight));
+  uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 4 * imageWidth * imageHeight));
+  //uint8_t*    targetCompute = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 4 * imageWidth * imageHeight));
+  uint8_t*    targetCompute = static_cast<uint8_t*>(malloc(sizeof(float) * 4 * imageWidth * imageHeight));
 
   // world
   hittableList world = randomScene();
@@ -203,12 +205,12 @@ int main(int, char**) {
 
 #if USE_OPENGL
   glDevice  glDevice;
-  glDevice.init(imageWidth, imageHeight);
+  glDevice.init(imageWidth, imageHeight, sceneIndexed->objects);
 
 #if USE_COMPUTE
-  while (glDevice.rtFrame(targetF, imageWidth, imageHeight)) {
+  while (glDevice.rtFrame(targetCompute, imageWidth, imageHeight, sceneIndexed->objects)) {
 #else
-  while (glDevice.rtFrame(target, imageWidth, imageHeight)) {
+  while (glDevice.rtFrame(target, imageWidth, imageHeight, sceneIndexed->objects)) {
 #endif  // USE_COMPUTE
 #endif  // USE_OPENGL
     for (int y = 0; y < imageHeight; ++y) {
@@ -232,7 +234,11 @@ int main(int, char**) {
         }
 
         //writeColor(std::cout, pixelColor, numSamples);
-        writeColorTarget(target, x, y, imageWidth, imageHeight, 3, pixelColor, numSamples);
+#if USE_COMPUTE
+        writeColorTarget(targetCompute, x, y, imageWidth, imageHeight, 4, pixelColor, numSamples);
+#else
+        writeColorTarget(target, x, y, imageWidth, imageHeight, 4, pixelColor, numSamples);
+#endif
       }
     }
 #if USE_OPENGL
@@ -241,7 +247,11 @@ int main(int, char**) {
   glDevice.terminate();
 #endif  // USE_OPENGL
 
-  stbi_write_png("test.png", imageWidth, imageHeight, 3, target, 3 * imageWidth);
+#if USE_COMPUTE
+  stbi_write_png("test.png", imageWidth, imageHeight, 4, target, 4 * imageWidth);
+#else
+  stbi_write_png("test.png", imageWidth, imageHeight, 4, target, 4 * imageWidth);
+#endif
   free(target);
 
   std::cerr << "\nDone.\n";

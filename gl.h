@@ -5,9 +5,6 @@
 #include <fstream>
 #include <sstream>
 
-//#include "stdio.h"
-//#include "stdlib.h"
-
 #define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -24,14 +21,13 @@ struct ssboBuffer {
   vec3f color2;
 };
 
-ssboBuffer  tempBuffer;
-
 class glDevice {
   public:
     glDevice() {}
 
-    bool init(int width, int height);
-    bool rtFrame(void* frameData, int frameWidth, int frameHeight);
+    bool init(int width, int height, std::vector<hittableIndexed>& hittableVector);
+    bool rtFrame(void* frameData, int texWidth, int texHeight,
+                  std::vector<hittableIndexed>& hittableVector);
     void terminate();
   
   private:
@@ -195,7 +191,7 @@ bool glDevice::buildComputeProgram(const char* csFilePath) {
   return true;
 }
 
-bool glDevice::init(int width, int height) {
+bool glDevice::init(int width, int height, std::vector<hittableIndexed>& hittableVector) {
   // set up glfw
   if (!glfwInit()) {
     return false;
@@ -242,36 +238,36 @@ bool glDevice::init(int width, int height) {
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rtFrameIndices), rtFrameIndices, GL_DYNAMIC_DRAW);
 
   // graphics shaders
-  buildGraphicsProgram("../shaders/rtFrameVS.glsl", "../shaders/rtFrameFS.glsl");
+  buildGraphicsProgram("../shaders/rtframe-vs.glsl", "../shaders/rtframe-fs.glsl");
 
   // graphics resources
   glGenTextures(1, &rtFrameTex);
   glBindTexture(GL_TEXTURE_2D, rtFrameTex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
   // compute shader
   buildComputeProgram("../shaders/compute.glsl");
 
   // compute resources
+  glGenBuffers(1, &SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(hittableIndexed) * hittableVector.size(),
+                hittableVector.data(), GL_DYNAMIC_READ);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, SSBO);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
   glGenTextures(1, &rtFrameComputeTex);
   glBindTexture(GL_TEXTURE_2D, rtFrameComputeTex);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
   glBindImageTexture(1, rtFrameComputeTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-  tempBuffer.color0 = vec3f(1.0f, 0, 0);
-  tempBuffer.color1 = vec3f(0, 1.0f, 0);
-  tempBuffer.color2 = vec3f(0, 0, 1.0f);
-
-  glGenBuffers(1, &SSBO);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO);
-  glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(tempBuffer), &tempBuffer, GL_DYNAMIC_READ);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, SSBO);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+  //glBindImageTexture(1, rtFrameComputeTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8UI);
 
   return true;
 }
 
-bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
+bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight,
+                        std::vector<hittableIndexed>& hittableVector) {
   static uint32_t frame = 0;
   if (glfwWindowShouldClose(glfwWin))
     return false;
@@ -288,16 +284,8 @@ bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
 #if USE_COMPUTE
   // start compute
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, SSBO);
-  tempBuffer.color0 = vec3f((frame + 0) % 3 == 0 ? 1.0f : 0,
-                              (frame + 2) % 3 == 0 ? 1.0f : 0,
-                              (frame + 1) % 3 == 0 ? 1.0f : 0);
-  tempBuffer.color1 = vec3f((frame + 1) % 3 == 0 ? 1.0f : 0,
-                              (frame + 0) % 3 == 0 ? 1.0f : 0,
-                              (frame + 2) % 3 == 0 ? 1.0f : 0);
-  tempBuffer.color2 = vec3f((frame + 2) % 3 == 0 ? 1.0f : 0,
-                              (frame + 1) % 3 == 0 ? 1.0f : 0,
-                              (frame + 0) % 3 == 0 ? 1.0f : 0);
-  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(tempBuffer), &tempBuffer);
+  glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(hittableIndexed) * hittableVector.size(),
+                    hittableVector.data());
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, SSBO);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -315,7 +303,7 @@ bool glDevice::rtFrame(void* frameData, int texWidth, int texHeight) {
   glBindTexture(GL_TEXTURE_2D, rtFrameComputeTex);
 #else
   glBindTexture(GL_TEXTURE_2D, rtFrameTex);
-  glTextureSubImage2D(rtFrameTex, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, frameData);
+  glTextureSubImage2D(rtFrameTex, 0, 0, 0, texWidth, texHeight, GL_RGBA, GL_UNSIGNED_BYTE, frameData);
 #endif
   glUniform1i(glGetUniformLocation(rtFrameProgram, "tex"), 0);
   setDefaultSamplers();

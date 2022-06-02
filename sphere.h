@@ -21,7 +21,8 @@ class sphere : public hittable {
     virtual int   populateVector(shared_ptr<class hittableVector> hittableVector) const override {
         int index = hittableVector->objects.size();
         hittableVector->objects.emplace_back();
-        hittableVector->objects[index].positions[0] = vec4f(999.0f, 999.0f, 999.0f, 1.0f);
+        //hittableVector->objects[index].positions[0] = vec4f(999.0f, 999.0f, 999.0f, 1.0f);
+        hittableVector->objects[index].UVs[0] = vec4f(0, 0, 255.0f, 255.0f);
         return index;
       }
 
