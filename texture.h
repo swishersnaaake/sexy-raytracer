@@ -3,8 +3,10 @@
 
 #include <iostream>
 
+#include "stb_image.h"
+#include "stb_image_write.h"
+
 #include "globals.h"
-#include "srtstbimage.h"
 
 using std::uint8_t;
 
