@@ -4,3 +4,12 @@
 [submodule "glad"]
 	path = glad
 	url = git@github.com:Dav1dde/glad.git
+[submodule "eigen"]
+	path = eigen
+	url = https://gitlab.com/libeigen/eigen
+[submodule "cgltf"]
+	path = cgltf
+	url = git@github.com:jkuhlmann/cgltf.git
+[submodule "stb"]
+	path = stb
+	url = git@github.com:nothings/stb.git

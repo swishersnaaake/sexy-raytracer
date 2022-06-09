@@ -10,7 +10,7 @@
 #include <GLFW/glfw3.h>
 
 #define USE_OPENGL  1
-#define USE_COMPUTE 0
+#define USE_COMPUTE 1
 
 using std::string;
 using std::stringstream;
