@@ -71,30 +71,12 @@ hittableList randomScene() {
   }
   else if (1) {
     //testModel = model::create("../data/masterchief-sep.gltf");
-    testModel = model::create("../data/masterchief2-separate.gltf");
+    testModel = model::create("../data/masterchief2-separate-xf.gltf");
     testModel->init();
-
-    AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
-    AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
-    AffineCompact3f scale = AffineCompact3f::Identity();
-    scale *= Scaling(0.075f);
-    final = trans * rotate * scale;
   }
   else {
     testModel = model::create("../data/scene.gltf");
     testModel->init();
-
-    /*AngleAxisf      rotate(deg2rad(270.0f), unitVector(vec3f::UnitY()));
-    AffineCompact3f trans(Translation3f(vec3f(0.0f, 0.0f, 0.0f)));
-    AffineCompact3f scale = AffineCompact3f::Identity();
-    scale *= Scaling(0.075f);
-    final = trans * rotate * scale;*/
-  }
-
-  for (const auto& mesh : testModel->meshes) {
-    for (auto& pos : mesh->positions) {
-      pos = final * pos;
-    }
   }
 
   for (const auto& mesh : testModel->meshes) {
@@ -194,7 +176,7 @@ int main(int, char**) {
   const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
   //const int   numSamples = 2000;
-  const int   numSamples = 4;
+  const int   numSamples = 1000;
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);
   uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 4 * imageWidth * imageHeight));
