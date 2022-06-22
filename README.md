@@ -1,5 +1,7 @@
 # sexy-raytracer
 
+![plot](./images/test-5kx720p.png)
+
 Ray tracing project for fun and my personal learning. Based on the books by Peter Shirley (https://raytracing.github.io/).
 
 I expanded the project by adding support for triangle primitives, normal maps, and a proper PBR BRDF.
