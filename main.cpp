@@ -172,11 +172,11 @@ int main(int, char**) {
   camera      mainCamera(eye, lookAt, vUp, 70.0f, aspect, aperture, distToFocus, 0, 1.0f);
 
   // image
-  //const int   imageHeight = 720;
-  const int   imageHeight = 240;
+  const int   imageHeight = 720;
+  //const int   imageHeight = 240;
   const int   imageWidth = static_cast<int>(imageHeight * aspect);
-  //const int   numSamples = 2000;
-  const int   numSamples = 1000;
+  const int   numSamples = 5000;
+  //const int   numSamples = 1000;
   const int   maxBounce = 4;
   const vec3f samplePos(0, 0.8f, 0);
   uint8_t*    target = static_cast<uint8_t*>(malloc(sizeof(uint8_t) * 4 * imageWidth * imageHeight));
