@@ -4,7 +4,7 @@
 
 Ray tracing project for fun and my personal learning. Based on the books by Peter Shirley (https://raytracing.github.io/).
 
-I expanded the project by adding support for triangle primitives, normal maps, and a proper PBR BRDF.
+I expanded the project by adding features oriented towards a production environment, like support for triangle primitives, normal maps, and a proper PBR BRDF.
 
 PBR used here is the metallic-roughness model from UE:
 https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
@@ -12,7 +12,9 @@ https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-269
 which is based on Disney:
 https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-To build:
+The Master Chief model is from Halo 2 and does not have a metallic/roughness map, but the left globe (sourced from https://freepbr.com/) does.
+
+To build (in Linux):
 
 - Clone the repo
 - git submodule init
