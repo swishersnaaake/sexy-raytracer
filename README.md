@@ -14,6 +14,8 @@ https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/
 
 The Master Chief model is from Halo 2 and does not have a metallic/roughness map, but the left globe (sourced from https://freepbr.com/) does.
 
+The OpenGL/Compute stuff is a very early WIP for accelerating ray intersections, which probably won't do a whole lot performance-wise due to thread divergence but will still be an interesting lesson. Plus I don't have a DXRT-capable GPU yet.
+
 To build (in Linux):
 
 - Clone the repo
